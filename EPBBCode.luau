@@ -48,6 +48,8 @@ For text *after* a tag, it will be added to the ParsedText as "{"<letter>", <num
 eg;
 RawText = "this is [color=red]red[/color]"
 ParsedText = {"t", "h", "i", "s", " ", "i", "s", " ", "{[color=red], "open_tag"}" "{[/color], "close_tag"}", {"r", -8}, {"e", -8}, {"d", -8}}
+
+todo: optimise this a lot
 ]]--
 local function ParseTypewriterText(RawText: string): any
     local result = {}
@@ -71,7 +73,7 @@ local function ParseTypewriterText(RawText: string): any
         end
         
         if not (close_tag_start == nil) then
-            if char > close_tag_start and char == close_tag_end then continue end
+            if char > close_tag_start and char < close_tag_end then continue end
         end
 
         local to_be_appended = ""

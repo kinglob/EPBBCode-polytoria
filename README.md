@@ -30,6 +30,20 @@ Some extra things that EPBBCode supports and allows you to do:
 ## EPBBCode Progress
 
 [x] Class Framework
+[ ] Typewriter & Regular output to a UILabel
+[ ] Custom tag parsing
+[ ] Event & Function tags
+[ ] Gradient colors for letters & text
+[ ] Animation tags for letters & text
+[ ] Image tags in regular & Typewriter output
+
+## Notes
+
+PRs are not yet supported. After I finish adding custom tag parsing I'll add a contributing guide to the repository.
+
+A wiki is in the works.
+
+Note that this is my first open-source polytoria project, and that Luau is not my area of expertise, so if you find any performance issues or any bugs that I can fix, please open an issue on the issue tracker.
 
 ---
 *Artificial Intelligence / LLM (Large Language Model) generated content was not used in the making of this project.*

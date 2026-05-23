@@ -1,9 +1,11 @@
 local EPBBCode = require("./EPBBCode")
 
-local EPBBText = EPBBCode.New("test, [color=what?][/color][color=blue_blue_Blue][/color], |||||||[color=red]tungtest[/color]", true)
+local EPBBText = EPBBCode.New("test, test, [color=red]red[/color] and [b]bold[/b]", true)
 print(EPBBText:Get(EPBBCode.Enums.RawText), "printing RawText")
 print(EPBBText:Get(EPBBCode.Enums.ParsedText), "printing ParsedText")
 
+-- this should just be the typewriterout, add an option later to only modify an existing string
+-- rather than forcing it into a UILabel.Text
 local string = ""
 for _, char in pairs(EPBBText:Get(EPBBCode.Enums.ParsedText)) do
 	
