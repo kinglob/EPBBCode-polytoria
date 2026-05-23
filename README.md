@@ -30,11 +30,17 @@ Some extra things that EPBBCode supports and allows you to do:
 ## EPBBCode Progress
 
 [x] Class Framework
+
 [ ] Typewriter & Regular output to a UILabel
+
 [ ] Custom tag parsing
+
 [ ] Event & Function tags
+
 [ ] Gradient colors for letters & text
+
 [ ] Animation tags for letters & text
+
 [ ] Image tags in regular & Typewriter output
 
 ## Notes
