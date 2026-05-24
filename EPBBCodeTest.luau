@@ -7,7 +7,8 @@ local function GetEPBBCodeTagData(Tag: string)
 		["Type"] = nil,
 		["Value"] = nil,
 		["Args"] = nil,
-		["WrappedText"] = nil
+		["WrappedText"] = nil,
+        ["CloseTagLength"] = nil
 	}
     local tag_start = 1
     local valueDeclaration = Tag:find("=", tag_start)
@@ -64,13 +65,15 @@ local function GetEPBBCodeTagData(Tag: string)
 
 		-- get wrapped text
 
-        local open_tag_end = Tag:find("]>", argsDeclaration, true)
+        local _, open_tag_end = Tag:find("]>", argsDeclaration, true)
 		-- searches for </[
         local close_tag_start = Tag:find("</[", open_tag_end, true)
+        local _, close_tag_end = Tag:find("]>", close_tag_start, true)
+        local close_tag_length = close_tag_end - close_tag_start + 2
+        data["CloseTagLength"] = close_tag_length
 
-        local wrapped_text = Tag:sub(open_tag_end + 2, close_tag_start - 1)
-        data["WrappedText"] = wrapped_text
-        print("wrapped text", wrapped_text)
+        local wrapped_text = Tag:sub(open_tag_end + 1, close_tag_start - 1)
+		data["WrappedText"] = wrapped_text
 
     end
 
@@ -78,7 +81,7 @@ local function GetEPBBCodeTagData(Tag: string)
 
 end
 
-GetEPBBCodeTagData("<[func='PlayACutscene', args={CutsceneName=First_cutscene, Local=true, Duration=10}]>!</[/func]>")
+GetEPBBCodeTagData("<[func='PlayACutscene', args={CutsceneName=First_cutscene, Local=true, Duration=10}]>!</[func]>")
 
 print("regular test suite!")
 

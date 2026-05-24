@@ -137,7 +137,9 @@ local function GetEPBBCodeTagData(Tag: string)
 		["Type"] = nil,
 		["Value"] = nil,
 		["Args"] = nil,
-		["WrappedText"] = nil
+		["WrappedText"] = nil,
+        ["OutsideText"] = nil,
+        ["CloseTagLength"] = nil
 	}
     local tag_start = 1
     local valueDeclaration = Tag:find("=", tag_start)
@@ -194,12 +196,34 @@ local function GetEPBBCodeTagData(Tag: string)
 
 		-- get wrapped text
 
-        local open_tag_end = Tag:find("]>", argsDeclaration, true)
-		-- searches for </[
-        local close_tag_start = Tag:find("</[", open_tag_end, true)
+        -- ignore if img or img_seq
+        if not (literal_type == "Image") or not (literal_type == "Image Sequence") then
+            local _, open_tag_end = Tag:find("]>", argsDeclaration, true)
+		    -- searches for </[
+            local close_tag_start = Tag:find("</[", open_tag_end, true)
+            local _, close_tag_end = Tag:find("]>", close_tag_start, true)
+            -- +2 to account for the <>
+            local close_tag_length = close_tag_end - close_tag_start + 2
+            data["CloseTagLength"] = close_tag_length
 
-        local wrapped_text = Tag:sub(open_tag_end + 2, close_tag_start - 1)
-        data["WrappedText"] = wrapped_text
+            -- +1 to avoid the > on the open tag end, -1 to avoid the < on the close tag start
+            local wrapped_text = Tag:sub(open_tag_end + 1, close_tag_start - 1)
+		    data["WrappedText"] = wrapped_text
+
+        else
+            local _, open_tag_end = Tag:find("]>", argsDeclaration, true)
+		    -- searches for </[
+            local close_tag_start = Tag:find("</[", open_tag_end, true)
+            local _, close_tag_end = Tag:find("]>", close_tag_start, true)
+            -- +2 to account for the <>
+            local close_tag_length = close_tag_end - close_tag_start + 2
+            data["CloseTagLength"] = close_tag_length
+
+            -- +1 to avoid the > on the open tag end, -1 to avoid the < on the close tag start
+            local outside_text = Tag:sub(open_tag_end + 1, close_tag_start - 1)
+		    data["OutsideText"] = outside_text
+
+        end
 
     end
 
@@ -236,8 +260,9 @@ local function ParseTypewriterText(RawText: string)
 
     while i <= #RawText do
 
-        -- getting four types of characters is a naive way of doing this
+        -- getting five types of characters is a naive way of doing this
         -- i know there's probably a faster way to do this but i'll do it later
+        local character_minus_two = RawText:sub(i - 2, i)
         local character_minus_one = RawText:sub(i - 1, i)
         local character = RawText:sub(i, i)
         local character_plus_one = RawText:sub(i, i+1)
@@ -259,7 +284,7 @@ local function ParseTypewriterText(RawText: string)
             -- short by 1 character, so just have a + 1
             open_tag_length = open_tag_end - open_tag_start + 1
 
-            current_segment_type = EPBBText.Enums.BBCode_Open_Tag
+            current_segment_type = EPBBText.Enums.Tags.BBCode_Open_Tag
             if previous_segment_type == nil then
                 previous_segment_type = current_segment_type
             end
@@ -269,17 +294,17 @@ local function ParseTypewriterText(RawText: string)
             i += 1
 
         -- IF BBCode_Close_Tag (regular tags)
-        elseif (character_plus_one == "[/") and not (character_minus_one == "%[") then
+        elseif (character_plus_one == "[/") and not (character_minus_one == "%[") and not (character_minus_two == "<[/") then
             close_tag_start = i
             close_tag_end = RawText:find("%]", close_tag_start)
             
             -- short by 1 character, so just have a + 1
             close_tag_length = close_tag_end - close_tag_start + 1
 
-            current_segment_type = EPBBText.Enums.BBCode_Close_Tag
+            current_segment_type = EPBBText.Enums.Tags.BBCode_Close_Tag
             if previous_segment_type == nil then
                 print("[color=orange]EBBCode: Close tag found before an open tag was found.[/color]")
-                previous_segment_type = EPBBText.Enums.BBCode_Close_Tag
+                previous_segment_type = EPBBText.Enums.Tags.BBCode_Close_Tag
             end
 
             local close_tag = RawText:sub(close_tag_start, close_tag_end)
@@ -289,14 +314,14 @@ local function ParseTypewriterText(RawText: string)
         -- IF EPBBCode_Open_Tag (custom tags)
         elseif (character_plus_one == "<[") and not (character_minus_one == "%<") then
             open_tag_start = i
-            open_tag_end = RawText:find("%>", close_tag_start)
+            open_tag_end = RawText:find("]>", close_tag_start)
 
             -- short by 1 character, so just have a + 1
             open_tag_length = open_tag_end - open_tag_start + 1
 
-            current_segment_type = EPBBText.Enums.EPBBCode_Open_Tag
+            current_segment_type = EPBBText.Enums.Tags.EPBBCode_Open_Tag
             if previous_segment_type == nil then
-                previous_segment_type = EPBBText.Enums.EPBBCode_Open_Tag
+                previous_segment_type = EPBBText.Enums.Tags.EPBBCode_Open_Tag
             end
 
             local open_tag = RawText:sub(open_tag_start, open_tag_end)
@@ -308,11 +333,11 @@ local function ParseTypewriterText(RawText: string)
         -- IF REGULAR LETTER
         else
 
-            if (current_segment_type == EPBBText.Enums.BBCode_Open_Tag) then
+            if (current_segment_type == EPBBText.Enums.Tags.BBCode_Open_Tag) then
                 text_buffer[#text_buffer + 1] = character
                 i += 1
 
-            elseif (current_segment_type == EPBBText.Enums.BBCode_Close_Tag) then
+            elseif (current_segment_type == EPBBText.Enums.Tags.BBCode_Close_Tag) then
 
                 for text_index = 1, #text_buffer do
                     result[#result + 1] = {text_buffer[text_index], close_tag_length}
@@ -349,10 +374,10 @@ Recompiles all properties (except for methods) when called.
 local function Update(args: {}): nil
     -- lookup table for avoiding if-else chains
     local ExecTable = {
-        [EPBBText.Enums.RawText]            = function() end,
-        [EPBBText.Enums.isTypewriter]       = function() end,
-        [EPBBText.Enums.isPaused]           = function() end,
-        [EPBBText.Enums.typewriterSpeed]    = function() end,
+        [EPBBText.Enums.Property.RawText]            = function() end,
+        [EPBBText.Enums.Property.isTypewriter]       = function() end,
+        [EPBBText.Enums.Property.isPaused]           = function() end,
+        [EPBBText.Enums.Property.typewriterSpeed]    = function() end,
     }
 
     for _, arg in pairs(args) do
@@ -368,14 +393,14 @@ end
 function EPBBText:Get(Property: number): any
     -- lookup table for avoiding if-else chains
     local LookupTable = {
-        [EPBBText.Enums.RawText]            = self.RawText,
-        [EPBBText.Enums.isTypewriter]       = self.isTypewriter,
-        [EPBBText.Enums.isPaused]           = self.isPaused,
-        [EPBBText.Enums.typewriterSpeed]    = self.typewriterSpeed,
-        [EPBBText.Enums.ParsedText]         = self.ParsedText,
-        [EPBBText.Enums.Length]       		= self.Length,
-        [EPBBText.Enums.Images]           	= self.Images,
-        [EPBBText.Enums.isOutputting]    	= self.isOutputting,
+        [EPBBText.Enums.Property.RawText]            = self.RawText,
+        [EPBBText.Enums.Property.isTypewriter]       = self.isTypewriter,
+        [EPBBText.Enums.Property.isPaused]           = self.isPaused,
+        [EPBBText.Enums.Property.typewriterSpeed]    = self.typewriterSpeed,
+        [EPBBText.Enums.Property.ParsedText]         = self.ParsedText,
+        [EPBBText.Enums.Property.Length]       		 = self.Length,
+        [EPBBText.Enums.Property.Images]           	 = self.Images,
+        [EPBBText.Enums.Property.isOutputting]    	 = self.isOutputting,
     }
 
     return LookupTable[Property]
@@ -384,14 +409,14 @@ end
 function EPBBText:Set(Property: number, Value: any): EPBBTextProperties
     -- lookup table for avoiding if-else chains
     local ExecTable = {
-        [EPBBText.Enums.RawText]            = function(Value) self.RawText = Value;         Update({EPBBText.Enums.RawText}) end,
-        [EPBBText.Enums.isTypewriter]       = function(Value) self.isTypewriter = Value;    Update({EPBBText.Enums.isTypewriter}) end,
-        [EPBBText.Enums.isPaused]           = function(Value) self.isPaused = Value;        Update({EPBBText.Enums.isPaused}) end,
-        [EPBBText.Enums.typewriterSpeed]    = function(Value) self.typewriterSpeed = Value; Update({EPBBText.Enums.typewriterSpeed}) end,
-        [EPBBText.Enums.ParsedText]         = function(Value) print("EPBBText: ParsedText cannot be modified directly.") end,
-        [EPBBText.Enums.Length]       		= function(Value) print("EPBBText: Length cannot be modified directly.") end,
-        [EPBBText.Enums.Images]           	= function(Value) print("EPBBText: Images cannot be modified directly.") end,
-        [EPBBText.Enums.isOutputting]    	= function(Value) print("EPBBText: isOutputting cannot be modified directly.") end,
+        [EPBBText.Enums.Property.RawText]            = function(Value) self.RawText = Value;         Update({EPBBText.Enums.RawText}) end,
+        [EPBBText.Enums.Property.isTypewriter]       = function(Value) self.isTypewriter = Value;    Update({EPBBText.Enums.isTypewriter}) end,
+        [EPBBText.Enums.Property.isPaused]           = function(Value) self.isPaused = Value;        Update({EPBBText.Enums.isPaused}) end,
+        [EPBBText.Enums.Property.typewriterSpeed]    = function(Value) self.typewriterSpeed = Value; Update({EPBBText.Enums.typewriterSpeed}) end,
+        [EPBBText.Enums.Property.ParsedText]         = function(Value) print("EPBBText: ParsedText cannot be modified directly.") end,
+        [EPBBText.Enums.Property.Length]       		 = function(Value) print("EPBBText: Length cannot be modified directly.") end,
+        [EPBBText.Enums.Property.Images]           	 = function(Value) print("EPBBText: Images cannot be modified directly.") end,
+        [EPBBText.Enums.Property.isOutputting]    	 = function(Value) print("EPBBText: isOutputting cannot be modified directly.") end,
     }
 
     local Exec = ExecTable[Property]
