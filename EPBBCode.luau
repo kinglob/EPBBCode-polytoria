@@ -36,6 +36,8 @@ type BoundGradients = {[string]: GradientImageAsset}
 -- parsed text related types
 type ParsedToken = string | {string | number}
 type ParsedText = {ParsedToken}
+type Metadata = {[string]: any}
+type ParsedTextMetadata = {[number]: Metadata}
 
 -- bindable types
 type Bindable = 
@@ -60,6 +62,7 @@ export type EPBBTextProperties = {
 
     -- read only
     ParsedText: ParsedText,
+    EPBBTextMetadata: ParsedTextMetadata,
     Length: number,
     isOutputting: boolean,
 
@@ -121,25 +124,29 @@ EPBBText.__index = EPBBText
 
 --[[
 Example EPBBCode tag:
-<[func='PlayACutscene', args={CutsceneName=First_cutscene, Local=true, Duration=10}]>!</[/func]>
+<[func='PlayACutscene', args={CutsceneName=First_cutscene, Local=true, Duration=10}]>!</[func]>
 
 Example output data:
 {
     "Type" = "Function",
     "Value" = "PlayACutscene",
-    "Args" = {"First cutscene", true, 10},
-    "WrappedText" = !
+    "Args" = {"CutsceneName"=First_cutscene, "Local"=true, "Duration"=10},
+    "WrappedText" = !,
+    "OutsideText" = nil,
+    "CloseTagLength" = 9,
+    "Column" = 1
 }
 
 ]]--
-local function GetEPBBCodeTagData(Tag: string)
+local function GetEPBBCodeTagData(Tag: string, Column: number)
     local data = {
 		["Type"] = nil,
 		["Value"] = nil,
 		["Args"] = nil,
 		["WrappedText"] = nil,
         ["OutsideText"] = nil,
-        ["CloseTagLength"] = nil
+        ["CloseTagLength"] = nil,
+        ["Column"] = Column
 	}
     local tag_start = 1
     local valueDeclaration = Tag:find("=", tag_start)
@@ -196,7 +203,7 @@ local function GetEPBBCodeTagData(Tag: string)
 
 		-- get wrapped text
 
-        -- ignore if img or img_seq
+        -- if not img or img_seq
         if not (literal_type == "Image") or not (literal_type == "Image Sequence") then
             local _, open_tag_end = Tag:find("]>", argsDeclaration, true)
 		    -- searches for </[
@@ -209,7 +216,8 @@ local function GetEPBBCodeTagData(Tag: string)
             -- +1 to avoid the > on the open tag end, -1 to avoid the < on the close tag start
             local wrapped_text = Tag:sub(open_tag_end + 1, close_tag_start - 1)
 		    data["WrappedText"] = wrapped_text
-
+        
+        -- if img or img
         else
             local _, open_tag_end = Tag:find("]>", argsDeclaration, true)
 		    -- searches for </[
@@ -229,6 +237,12 @@ local function GetEPBBCodeTagData(Tag: string)
 
 	return data
 
+end
+
+local function GetEPBBCodeTagPriorityOrder(EPBBCodeTagBuffer: {})
+    local ordered = {}
+
+    return ordered
 end
 
 --[[
@@ -255,8 +269,10 @@ local function ParseTypewriterText(RawText: string)
 
     local text_buffer = {}
     local epbbcode_tag_buffer = {}
-    local current_eppbbcode_tag = {}
+    local total_tag_length = 0
+
     local result = {}
+    local metadata = {}
 
     while i <= #RawText do
 
@@ -273,16 +289,17 @@ local function ParseTypewriterText(RawText: string)
         end
         
         if not (close_tag_start == nil) then
-            if i > close_tag_start and i < close_tag_end then i += 1; continue end
+            if i > close_tag_start and i <= close_tag_end then i += 1; continue end
         end 
 
         -- IF BBCode_Open_Tag (regular tags)
         if (character == "[") and not (character_plus_one == "[/") and not (character_minus_one == "%[") then
             open_tag_start = i
-            open_tag_end = RawText:find("%]", open_tag_start)
+            _, open_tag_end = RawText:find("]", open_tag_start, true)
             
-            -- short by 1 character, so just have a + 1
+            -- short by 1 character, so just have a +1
             open_tag_length = open_tag_end - open_tag_start + 1
+            total_tag_length += open_tag_length
 
             current_segment_type = EPBBText.Enums.Tags.BBCode_Open_Tag
             if previous_segment_type == nil then
@@ -296,14 +313,15 @@ local function ParseTypewriterText(RawText: string)
         -- IF BBCode_Close_Tag (regular tags)
         elseif (character_plus_one == "[/") and not (character_minus_one == "%[") and not (character_minus_two == "<[/") then
             close_tag_start = i
-            close_tag_end = RawText:find("%]", close_tag_start)
+            _, close_tag_end = RawText:find("]", close_tag_start, true)
             
-            -- short by 1 character, so just have a + 1
+            -- short by 1 character, so just have a +1
             close_tag_length = close_tag_end - close_tag_start + 1
+            total_tag_length += close_tag_length
 
             current_segment_type = EPBBText.Enums.Tags.BBCode_Close_Tag
             if previous_segment_type == nil then
-                print("[color=orange]EBBCode: Close tag found before an open tag was found.[/color]")
+                print("[color=orange]EPBBCode: Close tag found before an open tag was found.[/color]")
                 previous_segment_type = EPBBText.Enums.Tags.BBCode_Close_Tag
             end
 
@@ -314,21 +332,42 @@ local function ParseTypewriterText(RawText: string)
         -- IF EPBBCode_Open_Tag (custom tags)
         elseif (character_plus_one == "<[") and not (character_minus_one == "%<") then
             open_tag_start = i
-            open_tag_end = RawText:find("]>", close_tag_start)
+            close_tag_start = RawText:find("</[", open_tag_start, true)
 
-            -- short by 1 character, so just have a + 1
+            _, close_tag_end = RawText:find("]>", close_tag_start, true)
+            _, open_tag_end = RawText:find("]>", open_tag_start, true)
+
+            -- short by 1 character, so just have a +1
             open_tag_length = open_tag_end - open_tag_start + 1
+            total_tag_length += open_tag_length
 
             current_segment_type = EPBBText.Enums.Tags.EPBBCode_Open_Tag
             if previous_segment_type == nil then
                 previous_segment_type = EPBBText.Enums.Tags.EPBBCode_Open_Tag
             end
 
-            local open_tag = RawText:sub(open_tag_start, open_tag_end)
-            epbbcode_tag_buffer[#epbbcode_tag_buffer + 1] = GetEPBBCodeTagData(open_tag)
+            local full_tag = RawText:sub(open_tag_start, close_tag_end)
+            epbbcode_tag_buffer[#epbbcode_tag_buffer + 1] = GetEPBBCodeTagData(full_tag, (open_tag_start - total_tag_length))
+
+            i += 1
 
         -- IF EPBBCode_Close_Tag
         elseif (character_plus_two == "</[") and not (character_minus_one == "%<") then
+            close_tag_start = i
+            _, close_tag_end = RawText:find("]>", close_tag_start, true)
+
+            -- short by 1 character, so just have a +1
+            close_tag_length = close_tag_end - open_tag_start + 1
+            total_tag_length += close_tag_length
+
+
+            current_segment_type = EPBBText.Enums.Tags.EPBBCode_Close_Tag
+            if previous_segment_type == nil then
+                print("[color=orange]EPBBCode: Close tag found before an open tag was found.[/color]")
+                previous_segment_type = EPBBText.Enums.Tags.EPBBCode_Close_Tag
+            end
+
+            i += 1
         
         -- IF REGULAR LETTER
         else
@@ -359,7 +398,9 @@ local function ParseTypewriterText(RawText: string)
         end
     end
 
-    return result
+    metadata = GetEPBBCodeTagPriorityOrder(epbbcode_tag_buffer)
+
+    return result, metadata
 end
 
 local function ParseRegularText(RawText: string)
@@ -465,11 +506,13 @@ function EPBBText.New(RawText: string, isTypewriter: boolean): EPBBTextPropertie
     self.RawText = RawText
 
     if isTypewriter then
-		local ParsedText = ParseTypewriterText(RawText)
+		local ParsedText, Metadata = ParseTypewriterText(RawText)
         self.ParsedText = ParsedText
+        self.EPBBTextMetadata = Metadata
     else
-        local ParsedText = ParseRegularText(RawText)
+        local ParsedText, Metadata = ParseRegularText(RawText)
         self.ParsedText = ParsedText
+        self.EPBBTextMetadata = Metadata
     end
 
     return self
