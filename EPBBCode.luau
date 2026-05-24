@@ -1,4 +1,53 @@
 --!nocheck
+
+-- function related types
+type BoundFunctions = {[string]: PTCallback}
+
+-- image related types
+type BoundImage = {
+    isCached: boolean,
+    ImageID: number
+}
+
+type BoundImages = {[string]: BoundImage}
+
+-- image sequence related types
+type ImageSequence = {
+    Images: {number},
+    isLooping: boolean,
+    isCached: boolean
+}
+
+type BoundImageSequences = {[string]: ImageSequence}
+
+-- event related types
+-- bindable / client
+type BoundEvents = {[string]: PTSignal}
+
+-- server / network
+type BoundNetworkEvents = {[string]: NetworkEvent}
+
+-- animation related types
+type BoundAnimations = {[string]: TweenObject}
+
+-- gradient related types
+type BoundGradients = {[string]: GradientImageAsset}
+
+-- parsed text related types
+type ParsedToken = string | {string | number}
+type ParsedText = {ParsedToken}
+
+-- bindable types
+type Bindable = 
+PTCallback          |
+BoundImage          |
+BoundImage          |
+ImageSequence       |
+PTSignal            |
+NetworkEvent        |
+TweenObject         |
+GradientImageAsset  
+
 export type EPBBTextProperties = {
 
     -- mutable
@@ -10,36 +59,153 @@ export type EPBBTextProperties = {
     isTypewriter: boolean, 
 
     -- read only
-    ParsedText: {},
+    ParsedText: ParsedText,
     Length: number,
-    Images: {[string]: string},
     isOutputting: boolean,
+
+    -- modified through methods only
+    EPBBTextBoundFunctions: BoundFunctions,
+    EPBBTextBoundImages: BoundImages,
+    EPBBTextBoundImageSequences: BoundImageSequences,
+    EPBBTextBoundEvents: BoundEvents,
+    EPBBTextBoundNetworkEvents: BoundNetworkEvents,
+    EPBBTextBoundAnimations: BoundAnimations,
+    EPBBTextBoundGradients: BoundGradients,
+    EPBBTextBoundLabel: UILabel,
 
     -- methods
     Get: (self: EPBBTextProperties) -> any,
     Set: (self: EPBBTextProperties) -> nil,
     Out: (self: EPBBTextProperties) -> nil,
     TypewriterOut: (self: EPBBTextProperties) -> nil,
-    BindLabel: (self: EPBBTextProperties) -> nil,
-    UnbindLabel: (self: EPBBTextProperties) -> nil,
+    Bind: (self: EPBBTextProperties, value: Bindable) -> nil,
+    Unbind: (self: EPBBTextProperties, value: Bindable) -> nil,
     Test: (self: EPBBTextProperties) -> nil
 }
 
 local EPBBText = {
     Enums = {
-        RawText = 1,
-        isTypewriter = 2,
-        isPaused = 3,
-        typewriterSpeed = 4,
-				ParsedText = 5,
-				Length = 6,
-				Images = 7,
-				isOutputting = 8
+        Property = {
+            RawText = 1,
+            isTypewriter = 2,
+            isPaused = 3,
+            typewriterSpeed = 4,
+		    ParsedText = 5,
+		    Length = 6,
+		    Images = 7,
+		    isOutputting = 8
+        },
+
+        Tags = {
+            BBCode_Open_Tag = 1,
+            EPBBCode_Open_Tag = 2,
+            BBCode_Close_Tag = 3,
+            EPBBCode_Close_Tag = 4
+        },
+
+        EPBBTypes = {
+            Function = 1,
+            Image = 2,
+            Image_Sequence = 3,
+            BindableEvent = 4,
+            NetworkEvent = 5,
+            Animation = 6,
+            Gradient = 7
+        },
+
     }
 }
 EPBBText.__index = EPBBText
 
 -- private
+
+--[[
+Example EPBBCode tag:
+<[func='PlayACutscene', args={CutsceneName=First_cutscene, Local=true, Duration=10}]>!</[/func]>
+
+Example output data:
+{
+    "Type" = "Function",
+    "Value" = "PlayACutscene",
+    "Args" = {"First cutscene", true, 10},
+    "WrappedText" = !
+}
+
+]]--
+local function GetEPBBCodeTagData(Tag: string)
+    local data = {
+		["Type"] = nil,
+		["Value"] = nil,
+		["Args"] = nil,
+		["WrappedText"] = nil
+	}
+    local tag_start = 1
+    local valueDeclaration = Tag:find("=", tag_start)
+	-- +2 to avoid the "<[", -1 to avoid the "="
+    local tag_type = Tag:sub(tag_start + 2, valueDeclaration - 1)
+
+    local TypeLookupTable = {
+        ["func"] 		= {[1] = "Function", 		[2] = "String"}, -- will find a corresponding Function
+        ["img"] 		= {[1] = "Image", 			[2] = "Number"}, -- will find a correspending Image
+        ["img_seq"] 	= {[1] = "Image Sequence",  [2] = "Table"},  -- will find a corresponding Image Sequence table
+        ["event"] 		= {[1] = "Client Event", 	[2] = "String"}, -- will find a correspending BindableEvent
+        ["netevent"] 	= {[1] = "Server Event", 	[2] = "String"}, -- will find a corresponding NetworkEvent
+        ["anim"] 		= {[1] = "Animation", 		[2] = "String"}, -- will find a corresponding TweenObject
+        ["gradient"] 	= {[1] = "Gradient", 		[2] = "String"}, -- will find a corresponding GradientImageAsset
+    }
+
+    local typeData = TypeLookupTable[tag_type]
+    local literal_type = typeData[1]
+	local value_type = typeData[2]
+	data["Type"] = literal_type
+
+	-- add other value types later
+    if (value_type == "String") then
+        -- find single quotes
+        local string_start = Tag:find("'", valueDeclaration, true)
+		-- +1 to avoid the initial '
+        local string_end = Tag:find("'", string_start + 1, true)
+
+		-- +1 to avoid the ', -1 to avoid another '
+        local value = Tag:sub(string_start + 1, string_end - 1)
+        data["Value"] = value
+
+		-- get args
+		local argsDeclaration = Tag:find("args", string_start, true)
+		if argsDeclaration == nil then
+			print("[color=orange]EPBBCode: unable to find args declaration in EPBBCode tag, leaving args as an empty table.[/color]")
+			data["Args"] = {}
+			return data
+		else
+			local argsStart = Tag:find("{", argsDeclaration, true)
+			local argsEnd = Tag:find("}", argsStart, true)
+			local argsData = {}
+		
+			-- gets key-value pairs
+            -- example: Speed=10
+            --          Speed   10
+            --          Key     Value
+			for arg_name, arg in Tag:sub(argsStart, argsEnd):gmatch("([%w_]+)=([%w_]+)") do
+				argsData[tostring(arg_name)] = arg
+			end
+
+			data["Args"] = argsData
+		end
+
+		-- get wrapped text
+
+        local open_tag_end = Tag:find("]>", argsDeclaration, true)
+		-- searches for </[
+        local close_tag_start = Tag:find("</[", open_tag_end, true)
+
+        local wrapped_text = Tag:sub(open_tag_end + 2, close_tag_start - 1)
+        data["WrappedText"] = wrapped_text
+
+    end
+
+	return data
+
+end
 
 --[[
 Parses RawText into a machine-readable format.
@@ -48,120 +214,124 @@ For text *after* a tag, it will be added to the ParsedText as "{"<letter>", <num
 eg;
 RawText = "this is [color=red]red[/color]"
 ParsedText = {"t", "h", "i", "s", " ", "i", "s", " ", "{[color=red], "open_tag"}" "{[/color], "close_tag"}", {"r", -8}, {"e", -8}, {"d", -8}}
-
-todo: optimise this a lot
 ]]--
-local function ParseTypewriterText(RawText: string): any
-    local result = {}
+local function ParseTypewriterText(RawText: string)
+    local i = 1
 
-    local text_buffer = {}
-    local close_tag_end = nil
+    local current_segment_type = nil
+    local previous_segment_type = nil
+
+    local open_tag_start = nil
+    local open_tag_end = nil
+    local open_tag_length = nil
+    
     local close_tag_start = nil
+    local close_tag_end = nil
     local close_tag_length = nil
 
-    local open_tag_end = nil
-    local open_tag_start = nil
-    local open_tag_length = nil
+    local text_buffer = {}
+    local epbbcode_tag_buffer = {}
+    local current_eppbbcode_tag = {}
+    local result = {}
 
-    local segment_type = "none"
-    local previous_segment_type = "none"
+    while i <= #RawText do
 
-    for char = 1, #RawText do
+        -- getting four types of characters is a naive way of doing this
+        -- i know there's probably a faster way to do this but i'll do it later
+        local character_minus_one = RawText:sub(i - 1, i)
+        local character = RawText:sub(i, i)
+        local character_plus_one = RawText:sub(i, i+1)
+        local character_plus_two = RawText:sub(i, i+2) -- PLEASE
 
         if not (open_tag_start == nil) then
-            if char > open_tag_start and char <= open_tag_end then continue end
+            if i > open_tag_start and i <= open_tag_end then i += 1; continue end
         end
         
         if not (close_tag_start == nil) then
-            if char > close_tag_start and char < close_tag_end then continue end
-        end
+            if i > close_tag_start and i < close_tag_end then i += 1; continue end
+        end 
 
-        local to_be_appended = ""
-
-        -- get first character, and then get the first + second character
-        local character = RawText:sub(char, char)
-        local character_plus_one = RawText:sub(char, char + 1)
-	    print(character, character_plus_one)
-        
-        -- IF OPEN_TAG
-        if (character == "[") and not (character_plus_one == "[/") then
-            segment_type = "open_tag"
-			print(segment_type)
-
-            if (previous_segment_type == "none") then
-                previous_segment_type = "open_tag"
-            end
+        -- IF BBCode_Open_Tag (regular tags)
+        if (character == "[") and not (character_plus_one == "[/") and not (character_minus_one == "%[") then
+            open_tag_start = i
+            open_tag_end = RawText:find("%]", open_tag_start)
             
-            for search = char, #RawText do
-                local search_character = RawText:sub(search, search)
-                if not (search_character == "]") then continue end
-				print("found end of open tag")
+            -- short by 1 character, so just have a + 1
+            open_tag_length = open_tag_end - open_tag_start + 1
 
-                -- set the "to be appended" to be the open tag
-                local open_tag = RawText:sub(char, search)
-                to_be_appended = {open_tag, segment_type}
-
-                open_tag_end = search
-                open_tag_start = char
-                open_tag_length = #open_tag
-
-                break
+            current_segment_type = EPBBText.Enums.BBCode_Open_Tag
+            if previous_segment_type == nil then
+                previous_segment_type = current_segment_type
             end
+
+            local open_tag = RawText:sub(open_tag_start, open_tag_end)
+            result[#result + 1] = open_tag
+            i += 1
+
+        -- IF BBCode_Close_Tag (regular tags)
+        elseif (character_plus_one == "[/") and not (character_minus_one == "%[") then
+            close_tag_start = i
+            close_tag_end = RawText:find("%]", close_tag_start)
+            
+            -- short by 1 character, so just have a + 1
+            close_tag_length = close_tag_end - close_tag_start + 1
+
+            current_segment_type = EPBBText.Enums.BBCode_Close_Tag
+            if previous_segment_type == nil then
+                print("[color=orange]EBBCode: Close tag found before an open tag was found.[/color]")
+                previous_segment_type = EPBBText.Enums.BBCode_Close_Tag
+            end
+
+            local close_tag = RawText:sub(close_tag_start, close_tag_end)
+            result[#result + 1] = close_tag
+            i += 1
+
+        -- IF EPBBCode_Open_Tag (custom tags)
+        elseif (character_plus_one == "<[") and not (character_minus_one == "%<") then
+            open_tag_start = i
+            open_tag_end = RawText:find("%>", close_tag_start)
+
+            -- short by 1 character, so just have a + 1
+            open_tag_length = open_tag_end - open_tag_start + 1
+
+            current_segment_type = EPBBText.Enums.EPBBCode_Open_Tag
+            if previous_segment_type == nil then
+                previous_segment_type = EPBBText.Enums.EPBBCode_Open_Tag
+            end
+
+            local open_tag = RawText:sub(open_tag_start, open_tag_end)
+            epbbcode_tag_buffer[#epbbcode_tag_buffer + 1] = GetEPBBCodeTagData(open_tag)
+
+        -- IF EPBBCode_Close_Tag
+        elseif (character_plus_two == "</[") and not (character_minus_one == "%<") then
         
-        -- IF CLOSE_TAG
-        elseif (character_plus_one == "[/") then
-            segment_type = "close_tag"
-			print(segment_type)
-
-            if (previous_segment_type == "none") then
-                previous_segment_type = "close_tag"
-            end
-
-            for search = char, #RawText do
-                local search_character = RawText:sub(search, search)
-                if not (search_character == "]") then continue end
-				print("found end of close tag")
-
-                -- set the "to be appended" to be the close tag
-                local close_tag = RawText:sub(char, search)
-                to_be_appended = {close_tag, segment_type}
-
-                close_tag_end = search
-                close_tag_start = char
-                close_tag_length = #close_tag
-
-                break
-            end
-        
-        -- IF NONE
+        -- IF REGULAR LETTER
         else
 
-            -- check if there's an open tag
-            if (segment_type == "open_tag") then
-                -- add to text buffer, unload after the segment_type is close_tag
+            if (current_segment_type == EPBBText.Enums.BBCode_Open_Tag) then
                 text_buffer[#text_buffer + 1] = character
-                continue
-            
-            elseif (segment_type == "close_tag") then
+                i += 1
 
-                for _, text_in_buffer in pairs(text_buffer) do
-                    print(text_in_buffer, close_tag_length)
-                    result[#result + 1] = {text_in_buffer, close_tag_length}
+            elseif (current_segment_type == EPBBText.Enums.BBCode_Close_Tag) then
+
+                for text_index = 1, #text_buffer do
+                    result[#result + 1] = {text_buffer[text_index], close_tag_length}
                 end
-                
-                text_buffer = {}
-                segment_type = "none"
-								
-			else
 
-				to_be_appended = character
+                text_buffer = {}
+                current_segment_type = nil
+
+                i += 1
+            
+            else
+                
+                -- gets current character
+                result[#result + 1] = RawText:sub(i, i)
+                i += 1
 
             end
 
         end
-
-        result[#result + 1] = to_be_appended
-
     end
 
     return result
@@ -245,7 +415,7 @@ function EPBBText:TypewriterOut(output_location: UILabel): nil
     self.isOutputting = true
 
     if not self.isTypewriter then
-        print("EPBBText: self.isTypewriter set to false, did you mean to call Out() instead?")
+        print("[color=red]EPBBText: self.isTypewriter set to false, did you mean to call Out() instead? Ending output.[/color]")
         return
     end
 
@@ -253,7 +423,7 @@ function EPBBText:TypewriterOut(output_location: UILabel): nil
     for _, segment in self.ParsedText do
         
         if not self.isTypewriter then
-            print("EPBBText: self.isTypewriter set to false while outputting segments, ending output (why would you do that)")
+            print("[color=red]EPBBText: self.isTypewriter set to false while outputting segments, ending output (why would you do that)[/color]")
             return
         end
 
