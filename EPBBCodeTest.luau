@@ -1,6 +1,7 @@
 local EPBBCode = require("./EPBBCode")
 
 print("regular test suite!")
+print(debug.traceback())
 
 
 EPBBCode.New("test", true)

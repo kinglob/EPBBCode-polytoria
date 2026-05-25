@@ -564,7 +564,9 @@ function EPBBText:TypewriterOut(output_location: UILabel)
 end
 
 function EPBBText.New(RawText: string, isTypewriter: boolean): EPBBTextProperties
-    local self = setmetatable({}, EPBBText)
+    print(debug.traceback())
+    local self = setmetatable({}, EPBBTextProperties)
+    print(debug.traceback())
     self.isTypewriter = isTypewriter
     self.RawText = RawText
 
@@ -578,7 +580,7 @@ function EPBBText.New(RawText: string, isTypewriter: boolean): EPBBTextPropertie
         self.EPBBTextMetadata = Metadata
     end
 
-    print(debug.traceback("traceback", 2))
+    print(debug.traceback())
     return self
 end
 
