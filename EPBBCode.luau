@@ -578,6 +578,7 @@ function EPBBText.New(RawText: string, isTypewriter: boolean): EPBBTextPropertie
         self.EPBBTextMetadata = Metadata
     end
 
+    print(debug.traceback("traceback", 2))
     return self
 end
 
