@@ -30,3 +30,9 @@ for _, char in pairs(EPBBText:Get(EPBBCode.Enums.Property.ParsedText)) do
 end
 print("------------------rebuilding parsed text----------------")
 print(string)
+
+
+print("------------------using typewriterout method--------")
+local thing: UILabel
+local out: string = EPBBText:TypewriterOut(thing)
+print(out)
