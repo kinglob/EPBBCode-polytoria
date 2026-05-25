@@ -515,7 +515,7 @@ function EPBBText:TypewriterOut(output_location: UILabel): string
     end
 
     local output_string = ""
-    for _, segment in self.ParsedText do
+    for _, segment in pairs(self.ParsedText) do
         
         if not self.isTypewriter then
             print("[color=red]EPBBText: self.isTypewriter set to false while outputting segments, ending output (why would you do that)[/color]")
@@ -551,7 +551,7 @@ function EPBBText:TypewriterOut(output_location: UILabel): string
         -- if the segment is a regular character / text
         else
 
-          print("segment is not table")
+          print("segment is not table: ", segment)
           output_string = output_string .. segment
 
         end
