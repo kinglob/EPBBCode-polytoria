@@ -11,7 +11,7 @@ print(EPBBText:Get(EPBBCode.Enums.Property.RawText), "printing RawText")
 print(EPBBText:Get(EPBBCode.Enums.Property.ParsedText), "printing ParsedText")
 
 print("------------------using typewriterout method--------")
-local thing: UILabel
+local thing: string = ""
 local out: string = EPBBText:TypewriterOut(thing)
 print(out, "LENGTH: " .. tostring(#out))
 print("------------------------metadata-----------------------")
