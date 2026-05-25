@@ -2,7 +2,10 @@ local EPBBCode = require("./EPBBCode")
 
 print("debug test suite!")
 
-local EPBBText = EPBBCode.New("test, test, <[func='function', args={foo=bar}]>[color=red]red[/color]</[func]> and [b]bold[/b] and <[func='function', args={foo=bar}]>[color=red]red[/color]</[func]>", true)
+local EPBBText = EPBBCode.New(
+	"test, test, <[func='function', args={foo=bar}]>[color=red]red[/color]</[func]> and [b]bold[/b] and <[func='function', args={foo=bar}]>[color=red]red[/color]</[func]>",
+	true
+)
 print(EPBBText:Get(EPBBCode.Enums.Property.RawText), "printing RawText")
 print(EPBBText:Get(EPBBCode.Enums.Property.ParsedText), "printing ParsedText")
 

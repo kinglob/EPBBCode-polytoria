@@ -11,5 +11,5 @@ run-nix:
   luau --profile ./EPBBCodeTest.luau
 
 format:
-  stylua ./EPBBCodeTest.luau
-  stylua ,/EPBBCode.luau
+  stylua EPBBCodeTest.luau
+  stylua EPBBCode.luau
