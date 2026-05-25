@@ -203,7 +203,7 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 		-- get args
 		local argsDeclaration = Tag:find("args", string_start, true)
 		if argsDeclaration == nil then
-			print("[color=orange]EPBBCode: unable to find args declaration in EPBBCode tag, leaving args as an empty table.[/color]")
+			warn("EPBBCode: unable to find args declaration in EPBBCode tag, leaving args as an empty table.")
 			data[EPBBText.Enums.SegmentProperty.Args] = {}
 			return data
 		else
@@ -342,7 +342,7 @@ local function ParseTypewriterText(RawText: string)
 
             current_segment_type = EPBBText.Enums.Tags.BBCode_Close_Tag
             if previous_segment_type == nil then
-                print("[color=orange]EPBBCode: Close tag found before an open tag was found.[/color]")
+                warn("EPBBCode: Close tag found before an open tag was found.")
                 previous_segment_type = EPBBText.Enums.Tags.BBCode_Close_Tag
             end
 
@@ -384,7 +384,7 @@ local function ParseTypewriterText(RawText: string)
 
             current_segment_type = EPBBText.Enums.Tags.EPBBCode_Close_Tag
             if previous_segment_type == nil then
-                print("[color=orange]EPBBCode: Close tag found before an open tag was found.[/color]")
+                warn("EPBBCode: Close tag found before an open tag was found.")
                 previous_segment_type = EPBBText.Enums.Tags.EPBBCode_Close_Tag
             end
 
@@ -479,10 +479,10 @@ function EPBBText:Set(Property: number, Value: any): EPBBTextProperties
         [EPBBText.Enums.Property.isTypewriter]       = function(Value) self.isTypewriter = Value;    Update({EPBBText.Enums.isTypewriter}) end,
         [EPBBText.Enums.Property.isPaused]           = function(Value) self.isPaused = Value;        Update({EPBBText.Enums.isPaused}) end,
         [EPBBText.Enums.Property.typewriterSpeed]    = function(Value) self.typewriterSpeed = Value; Update({EPBBText.Enums.typewriterSpeed}) end,
-        [EPBBText.Enums.Property.ParsedText]         = function(Value) print("EPBBText: ParsedText cannot be modified directly.") end,
-        [EPBBText.Enums.Property.Length]       		 = function(Value) print("EPBBText: Length cannot be modified directly.") end,
-        [EPBBText.Enums.Property.Images]           	 = function(Value) print("EPBBText: Images cannot be modified directly.") end,
-        [EPBBText.Enums.Property.isOutputting]    	 = function(Value) print("EPBBText: isOutputting cannot be modified directly.") end,
+        [EPBBText.Enums.Property.ParsedText]         = function(Value) warn("EPBBText: ParsedText cannot be modified directly.") end,
+        [EPBBText.Enums.Property.Length]       		 = function(Value) warn("EPBBText: Length cannot be modified directly.") end,
+        [EPBBText.Enums.Property.Images]           	 = function(Value) warn("EPBBText: Images cannot be modified directly.") end,
+        [EPBBText.Enums.Property.isOutputting]    	 = function(Value) warn("EPBBText: isOutputting cannot be modified directly.") end,
     }
 
     local Exec = ExecTable[Property]
@@ -508,20 +508,18 @@ local function GetMetadataByColumn(metadata: Metadata)
 returns a string being the output string going to the output location
 sets output_location.Text to be string + the current segment
 --]]--
-function EPBBText:TypewriterOut(output_location: UILabel): string
+function EPBBText:TypewriterOut(output_location: UILabel)
     self.isOutputting = true
 
     if not self.isTypewriter then
-        print("[color=red]EPBBText: self.isTypewriter set to false, did you mean to call Out() instead? Ending output.[/color]")
-        return ""
+        error("EPBBText: self.isTypewriter set to false, did you mean to call Out() instead? Ending output.", 2)
     end
 
     local output_string = ""
     for column, segment in pairs(self.ParsedText) do
         
         if not self.isTypewriter then
-            print("[color=red]EPBBText: self.isTypewriter set to false while outputting segments, ending output (why would you do that)[/color]")
-            return ""
+            error("EPBBText: self.isTypewriter set to false while outputting segments, ending output (why would you do that)", 2)
         end
         
         -- check if the segment is a table
@@ -547,7 +545,7 @@ function EPBBText:TypewriterOut(output_location: UILabel): string
             continue
           -- if neither (how)
           else
-            print("[color=red]EPBBText: segment " .. tostring(_) .. " in parsed text during TypewriterOut to " .. output_location.Name .. " was found to be a table but was empty")
+            error("EPBBText: segment " .. tostring(column) .. " in parsed text during TypewriterOut to " .. output_location.Name .. " was found to be a table but was empty", 2)
             continue
           end
         
