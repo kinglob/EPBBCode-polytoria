@@ -9,3 +9,7 @@ run-linux:
 
 run-nix:
   luau --profile ./EPBBCodeTest.luau
+
+format:
+  stylua ./EPBBCodeTest.luau
+  stylua ,/EPBBCode.luau

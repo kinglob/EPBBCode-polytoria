@@ -502,6 +502,8 @@ function EPBBText:Out(output_location: UILabel): nil
     return
 end
 
+local function GetMetadataByColumn(metadata: Metadata)
+
 --[[
 returns a string being the output string going to the output location
 sets output_location.Text to be string + the current segment
@@ -511,15 +513,15 @@ function EPBBText:TypewriterOut(output_location: UILabel): string
 
     if not self.isTypewriter then
         print("[color=red]EPBBText: self.isTypewriter set to false, did you mean to call Out() instead? Ending output.[/color]")
-        return
+        return ""
     end
 
     local output_string = ""
-    for _, segment in pairs(self.ParsedText) do
+    for column, segment in pairs(self.ParsedText) do
         
         if not self.isTypewriter then
             print("[color=red]EPBBText: self.isTypewriter set to false while outputting segments, ending output (why would you do that)[/color]")
-            return
+            return ""
         end
         
         -- check if the segment is a table
@@ -552,7 +554,7 @@ function EPBBText:TypewriterOut(output_location: UILabel): string
         -- if the segment is a regular character / text
         else
 
-          print("segment is not table: ", segment)
+          print("segment is not table: ", segment, column)
           output_string = output_string .. segment
 
         end

@@ -2,6 +2,9 @@ local EPBBCode = require("./EPBBCode")
 
 print("regular test suite!")
 
+
+EPBBCode.New("test", true)
+
 local EPBBText = EPBBCode.New("test, test, <[func='function', args={foo=bar}]>[color=red]red[/color]</[func]> and [b]bold[/b]", true)
 print(EPBBText:Get(EPBBCode.Enums.Property.RawText), "printing RawText")
 print(EPBBText:Get(EPBBCode.Enums.Property.ParsedText), "printing ParsedText")

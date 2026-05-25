@@ -39,6 +39,7 @@
               luau
               just
               jq
+              stylua
             ];
           };
         }
