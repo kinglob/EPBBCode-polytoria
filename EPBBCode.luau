@@ -551,6 +551,7 @@ function EPBBText:TypewriterOut(output_location: UILabel): string
         -- if the segment is a regular character / text
         else
 
+          print("segment is not table")
           output_string = output_string .. segment
 
         end
