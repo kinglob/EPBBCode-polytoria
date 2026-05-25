@@ -524,6 +524,7 @@ function EPBBText:TypewriterOut(output_location: UILabel): string
         
         -- check if the segment is a table
         if typeof(segment) == typeof({}) then
+          print("segment is table:")
           -- check segment type
           -- if offset character
           if (segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.Offset_Character) then
