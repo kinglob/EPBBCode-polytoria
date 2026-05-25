@@ -540,6 +540,7 @@ function EPBBText:TypewriterOut(output_location: UILabel): string
 
           -- if epbbcode tag (metadata) 
           elseif (segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.EPBBCode_Metadata) then
+            print("is metadata tag")
             -- lol idk 
             continue
           -- if neither (how)
