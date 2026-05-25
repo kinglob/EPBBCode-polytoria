@@ -116,6 +116,26 @@ local EPBBText = {
             Gradient = 7
         },
 
+        SegmentTypes = {
+          EPBBCode_Metadata = 1,
+          Offset_Character = 2
+          -- Characters / text that is appended immediately does not have a enum.
+        },
+
+        SegmentProperty = {
+          Offset = 1,
+          Character = 2,
+          Type = 3,
+          Args = 4,
+          OutsideText = 5,
+          CloseTagLength = 6,
+          Column = 7,
+          SegmentType = 8,
+          Value = 9,
+          WrappedText = 10,
+          Text = 11,
+        },
+
     }
 }
 EPBBText.__index = EPBBText
@@ -140,13 +160,14 @@ Example output data:
 ]]--
 local function GetEPBBCodeTagData(Tag: string, Column: number)
     local data = {
-		["Type"] = nil,
-		["Value"] = nil,
-		["Args"] = nil,
-		["WrappedText"] = nil,
-        ["OutsideText"] = nil,
-        ["CloseTagLength"] = nil,
-        ["Column"] = Column
+		[EPBBText.Enums.SegmentProperty.Type] = nil,
+		[EPBBText.Enums.SegmentProperty.Value] = nil,
+		[EPBBText.Enums.SegmentProperty.Args] = nil,
+		[EPBBText.Enums.SegmentProperty.WrappedText] = nil,
+    [EPBBText.Enums.SegmentProperty.OutsideText] = nil,
+    [EPBBText.Enums.SegmentProperty.CloseTagLength] = nil,
+    [EPBBText.Enums.SegmentProperty.Column] = Column,
+    [EPBBText.Enums.SegmentProperty.SegmentType] = EPBBText.Enums.SegmentTypes.EPBBCode_Metadata
 	}
     local tag_start = 1
     local valueDeclaration = Tag:find("=", tag_start)
@@ -166,7 +187,7 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
     local typeData = TypeLookupTable[tag_type]
     local literal_type = typeData[1]
 	local value_type = typeData[2]
-	data["Type"] = literal_type
+	data[EPBBText.Enums.SegmentProperty.Type] = literal_type
 
 	-- add other value types later
     if (value_type == "String") then
@@ -177,13 +198,13 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 
 		-- +1 to avoid the ', -1 to avoid another '
         local value = Tag:sub(string_start + 1, string_end - 1)
-        data["Value"] = value
+        data[EPBBText.Enums.SegmentProperty.Value] = value
 
 		-- get args
 		local argsDeclaration = Tag:find("args", string_start, true)
 		if argsDeclaration == nil then
 			print("[color=orange]EPBBCode: unable to find args declaration in EPBBCode tag, leaving args as an empty table.[/color]")
-			data["Args"] = {}
+			data[EPBBText.Enums.SegmentProperty.Args] = {}
 			return data
 		else
 			local argsStart = Tag:find("{", argsDeclaration, true)
@@ -198,7 +219,7 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 				argsData[tostring(arg_name)] = arg
 			end
 
-			data["Args"] = argsData
+			data[EPBBText.Enums.SegmentProperty.Args] = argsData
 		end
 
 		-- get wrapped text
@@ -211,11 +232,11 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
             local _, close_tag_end = Tag:find("]>", close_tag_start, true)
             -- +2 to account for the <>
             local close_tag_length = close_tag_end - close_tag_start + 2
-            data["CloseTagLength"] = close_tag_length
+            data[EPBBText.Enums.SegmentProperty.CloseTagLength] = close_tag_length
 
             -- +1 to avoid the > on the open tag end, -1 to avoid the < on the close tag start
             local wrapped_text = Tag:sub(open_tag_end + 1, close_tag_start - 1)
-		    data["WrappedText"] = wrapped_text
+		    data[EPBBText.Enums.SegmentProperty.WrappedText] = wrapped_text
         
         -- if img or img
         else
@@ -225,11 +246,11 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
             local _, close_tag_end = Tag:find("]>", close_tag_start, true)
             -- +2 to account for the <>
             local close_tag_length = close_tag_end - close_tag_start + 2
-            data["CloseTagLength"] = close_tag_length
+            data[EPBBText.Enums.SegmentProperty.CloseTagLength] = close_tag_length
 
             -- +1 to avoid the > on the open tag end, -1 to avoid the < on the close tag start
             local outside_text = Tag:sub(open_tag_end + 1, close_tag_start - 1)
-		    data["OutsideText"] = outside_text
+		    data[EPBBText.Enums.SegmentProperty.OutsideText] = outside_text
 
         end
 
@@ -379,7 +400,11 @@ local function ParseTypewriterText(RawText: string)
             elseif (current_segment_type == EPBBText.Enums.Tags.BBCode_Close_Tag) then
 
                 for text_index = 1, #text_buffer do
-                    result[#result + 1] = {text_buffer[text_index], close_tag_length}
+                    result[#result + 1] = {
+                      [EPBBText.Enums.SegmentProperty.Text] = text_buffer[text_index],
+                      [EPBBText.Enums.SegmentProperty.CloseTagLength] = close_tag_length,
+                      [EPBBText.Enums.SegmentTypes.Offset_Character] = EPBBText.Enums.SegmentTypes.Offset_Character
+                    }
                 end
 
                 text_buffer = {}
@@ -477,7 +502,11 @@ function EPBBText:Out(output_location: UILabel): nil
     return
 end
 
-function EPBBText:TypewriterOut(output_location: UILabel): nil
+--[[
+returns a string being the output string going to the output location
+sets output_location.Text to be string + the current segment
+--]]--
+function EPBBText:TypewriterOut(output_location: UILabel): string
     self.isOutputting = true
 
     if not self.isTypewriter then
@@ -492,12 +521,42 @@ function EPBBText:TypewriterOut(output_location: UILabel): nil
             print("[color=red]EPBBText: self.isTypewriter set to false while outputting segments, ending output (why would you do that)[/color]")
             return
         end
+        
+        -- check if the segment is a table
+        if typeof(segment) == typeof({}) then
+          -- check segment type
+          -- if offset character
+          if (segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.Offset_Character) then
+            local segment_character = segment[EPBBText.Enums.SegmentProperty.Text]
+            local segment_offset = segment[EPBBText.Enums.SegmentProperty.Offset]
 
-        output_string = output_string .. segment
+            local string_first_half = output_string:sub(1, #output_string - segment_offset)
+            local string_second_half = output_string:sub(#output_string - segment_offset, -1)
+
+            output_string = string_first_half .. segment_character .. string_second_half
+            continue
+
+          -- if epbbcode tag (metadata) 
+          elseif (segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.EPBBCode_Metadata) then
+            -- lol idk 
+            continue
+          -- if neither (how)
+          else
+            print("[color=red]EPBBText: segment " .. tostring(_) .. " in parsed text during TypewriterOut to " .. output_location.Name .. " was found to be a table but was empty")
+            continue
+          end
+        
+        -- if the segment is a regular character / text
+        else
+
+          output_string = output_string .. segment
+
+        end
+
     end
 
     self.isOutputting = false
-    return
+    return output_string
 end
 
 function EPBBText.New(RawText: string, isTypewriter: boolean): EPBBTextProperties
