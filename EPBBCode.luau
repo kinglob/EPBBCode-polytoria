@@ -174,7 +174,6 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 	local tag_start = 1
 	local valueDeclaration = Tag:find("=", tag_start)
 
-
 	-- +2 to avoid the "<[", -1 to avoid the "="
 	local tag_type = Tag:sub(tag_start + 2, valueDeclaration - 1)
 
@@ -316,20 +315,20 @@ local function ParseTypewriterText(RawText: string)
 		local character_plus_two = RawText:sub(i, i + 2) -- PLEASE
 
 		-- get state
-        if character_plus_two == "</[" then
-            state = states.EPBBCODE_CLOSE
-        elseif character_plus_one == "<[" then
-            state = states.EPBBCODE_OPEN
-        elseif character_plus_one == "[/" then
-            state = states.BBCODE_CLOSE
-        elseif (character == "[") and not (character_minus_one == "<[") then
-            state = states.BBCODE_OPEN
-        end
+		if character_plus_two == "</[" then
+			state = states.EPBBCODE_CLOSE
+		elseif character_plus_one == "<[" then
+			state = states.EPBBCODE_OPEN
+		elseif character_plus_one == "[/" then
+			state = states.BBCODE_CLOSE
+		elseif (character == "[") and not (character_minus_one == "<[") then
+			state = states.BBCODE_OPEN
+		end
 
 		if not (open_tag_start == nil) then
 			if i > open_tag_start and i <= open_tag_end then
 				i += 1
-                state = nil
+				state = nil
 				continue
 			end
 		end
@@ -337,7 +336,7 @@ local function ParseTypewriterText(RawText: string)
 		if not (close_tag_start == nil) then
 			if i > close_tag_start and i <= close_tag_end then
 				i += 1
-                state = nil
+				state = nil
 				continue
 			end
 		end
@@ -378,7 +377,7 @@ local function ParseTypewriterText(RawText: string)
 			local close_tag = RawText:sub(close_tag_start, close_tag_end)
 			result[#result + 1] = close_tag
 
-            for text_index = 1, #text_buffer do
+			for text_index = 1, #text_buffer do
 				result[#result + 1] = {
 					[EPBBText.Enums.SegmentProperty.Text] = text_buffer[text_index],
 					[EPBBText.Enums.SegmentProperty.CloseTagLength] = close_tag_length,
@@ -388,15 +387,17 @@ local function ParseTypewriterText(RawText: string)
 
 			text_buffer = {}
 			current_segment_type = nil
-            
+
 			i += 1
 
 		-- IF EPBBCode_Open_Tag (custom tags)
 		elseif state == states.EPBBCODE_OPEN then
+			local column_location = i - total_tag_length
+
 			open_tag_start = i
 			_, open_tag_end = RawText:find("]>", open_tag_start, true)
 
-            -- +1 to start after open tag end
+			-- +1 to start after open tag end
 			close_tag_start = RawText:find("</[", open_tag_end + 1, true)
 			_, close_tag_end = RawText:find("]>", close_tag_start, true)
 
@@ -405,15 +406,17 @@ local function ParseTypewriterText(RawText: string)
 			total_tag_length += open_tag_length
 
 			current_segment_type = EPBBText.Enums.Tags.EPBBCode_Open_Tag
+
+			local full_tag = RawText:sub(open_tag_start, close_tag_end)
+
+			-- get column location
 			if previous_segment_type == nil then
 				previous_segment_type = EPBBText.Enums.Tags.EPBBCode_Open_Tag
 			end
 
-			local full_tag = RawText:sub(open_tag_start, close_tag_end)
-			epbbcode_tag_buffer[#epbbcode_tag_buffer + 1] =
-				GetEPBBCodeTagData(full_tag, (total_tag_length - open_tag_start + 2))
+			epbbcode_tag_buffer[#epbbcode_tag_buffer + 1] = GetEPBBCodeTagData(full_tag, column_location)
 
-		    i += 1
+			i += 1
 
 		-- IF EPBBCode_Close_Tag
 		elseif state == states.EPBBCODE_CLOSE then
@@ -444,7 +447,7 @@ local function ParseTypewriterText(RawText: string)
 			end
 		end
 
-        state = nil
+		state = nil
 	end
 
 	metadata = GetEPBBCodeTagPriorityOrder(epbbcode_tag_buffer)
@@ -515,16 +518,16 @@ function EPBBText:Set(Property: number, Value: any): EPBBTextProperties
 			Update({ EPBBText.Enums.typewriterSpeed })
 		end,
 		[EPBBText.Enums.Property.ParsedText] = function(Value)
-			warn("EPBBText: ParsedText cannot be modified directly.")
+			warn("EPBBCode: ParsedText cannot be modified directly.")
 		end,
 		[EPBBText.Enums.Property.Length] = function(Value)
-			warn("EPBBText: Length cannot be modified directly.")
+			warn("EPBBCode: Length cannot be modified directly.")
 		end,
 		[EPBBText.Enums.Property.Images] = function(Value)
-			warn("EPBBText: Images cannot be modified directly.")
+			warn("EPBBCode: Images cannot be modified directly.")
 		end,
 		[EPBBText.Enums.Property.isOutputting] = function(Value)
-			warn("EPBBText: isOutputting cannot be modified directly.")
+			warn("EPBBCode: isOutputting cannot be modified directly.")
 		end,
 	}
 
@@ -539,7 +542,7 @@ function EPBBText:Out(output_location: UILabel): nil
 
 	if self.isTypewriter then
 		print(
-			"EPBBText: self.isTypewritter is set to true, did you mean to call TypewriterOut()? continuing output regardless"
+			"EPBBCode: self.isTypewritter is set to true, did you mean to call TypewriterOut()? continuing output regardless"
 		)
 	end
 
@@ -547,12 +550,13 @@ function EPBBText:Out(output_location: UILabel): nil
 	return
 end
 
-local function GetMetadataByColumn(metadata: Metadata, column: number)
+local function GetMetadataByColumn(metadata: Metadata, column: number): {} | nil
 	for _, data in pairs(metadata) do
 		if data[EPBBText.Enums.SegmentProperty.Column] == column then
 			return data
 		end
 	end
+	return
 end
 
 --[[
@@ -560,18 +564,19 @@ returns a string being the output string going to the output location
 sets output_location.Text to be string + the current segment
 --]]
 --
-function EPBBText:TypewriterOut(output_location: UILabel)
+function EPBBText:TypewriterOut(output_location: UILabel | string): string | nil
 	self.isOutputting = true
+	local is_output_nil = false
 
 	if not self.isTypewriter then
-		error("EPBBText: self.isTypewriter set to false, did you mean to call Out() instead? Ending output.", 2)
+		error("EPBBCode: self.isTypewriter set to false, did you mean to call Out() instead? Ending output.", 2)
 	end
 
 	local output_string = ""
 	for column, segment in pairs(self.ParsedText) do
 		if not self.isTypewriter then
 			error(
-				"EPBBText: self.isTypewriter set to false while outputting segments, ending output (why would you do that)",
+				"EPBBCode: self.isTypewriter set to false while outputting segments, ending output (why would you do that)",
 				2
 			)
 		end
@@ -587,10 +592,25 @@ function EPBBText:TypewriterOut(output_location: UILabel)
 				print(segment_character, segment_offset)
 
 				local string_first_half = output_string:sub(1, #output_string - segment_offset)
-                -- +1 to avoid trailing characters from the tag
+				-- +1 to avoid trailing characters from the tag
 				local string_second_half = output_string:sub(#output_string - segment_offset + 1, -1)
 
 				output_string = string_first_half .. segment_character .. string_second_half
+
+				if output_location == nil then
+					if not is_output_nil then
+						is_output_nil = true
+						warn(
+							"EPBBCode: output_location parameter was not set to a UILabel or string variable and was found to be nil. This will only return an output string and this warning will not repeat."
+						)
+					end
+					continue
+				elseif typeof(output_location) == "string" then
+					output_location = output_string
+				else
+					output_location.Text = output_string
+				end
+
 				continue
 
 			-- if epbbcode tag (metadata)
@@ -603,14 +623,13 @@ function EPBBText:TypewriterOut(output_location: UILabel)
 			-- if neither (how)
 			else
 				error(
-					"EPBBText: segment "
+					"EPBBCode: segment "
 						.. tostring(column)
 						.. " in parsed text during TypewriterOut to "
 						.. output_location.Name
 						.. " was found to be a table but was empty",
 					2
 				)
-				continue
 			end
 
 		-- if the segment is a regular character / text
