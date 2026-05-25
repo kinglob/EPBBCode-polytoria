@@ -1,3 +1,5 @@
+set windows-shell := ["powershell", "-Command"]
+
 run:
   ./windows-luau/luau.exe --profile ./EPBBCodeTest.luau
 

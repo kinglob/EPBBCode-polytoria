@@ -1,3 +1,4 @@
+--!nocheck
 local EPBBCode = require("./EPBBCode")
 
 print("debug test suite!")
