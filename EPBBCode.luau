@@ -529,6 +529,7 @@ function EPBBText:TypewriterOut(output_location: UILabel): string
           if (segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.Offset_Character) then
             local segment_character = segment[EPBBText.Enums.SegmentProperty.Text]
             local segment_offset = segment[EPBBText.Enums.SegmentProperty.Offset]
+            print(segment_character, segment_offset)
 
             local string_first_half = output_string:sub(1, #output_string - segment_offset)
             local string_second_half = output_string:sub(#output_string - segment_offset, -1)
