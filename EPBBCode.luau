@@ -1,7 +1,7 @@
 --!nocheck
 
 -- function related types
-type BoundFunctions = { [string]: {PTCallback | PTFunction, boolean} }
+type BoundFunctions = { [string]: {PTCallback | PTFunction | boolean} }
 
 -- image related types
 type BoundImage = {
@@ -9,7 +9,7 @@ type BoundImage = {
 	ImageID: number,
 }
 
-type BoundImages = { [string]: {BoundImage, boolean} }
+type BoundImages = { [string]: {BoundImage | boolean} }
 
 -- image sequence related types
 type ImageSequence = {
@@ -18,20 +18,20 @@ type ImageSequence = {
 	isCached: boolean,
 }
 
-type BoundImageSequences = { [string]: {ImageSequence, boolean} }
+type BoundImageSequences = { [string]: {ImageSequence | boolean} }
 
 -- event related types
 -- bindable / client
-type BoundEvents = { [string]: {PTSignal | BindableEvent, boolean} }
+type BoundEvents = { [string]: {PTSignal | BindableEvent | boolean} }
 
 -- server / network
-type BoundNetworkEvents = { [string]: {NetworkEvent | PTSignal, boolean} }
+type BoundNetworkEvents = { [string]: {NetworkEvent | PTSignal | boolean} }
 
 -- animation related types
-type BoundAnimations = { [string]: {TweenObject, boolean} }
+type BoundAnimations = { [string]: {TweenObject | boolean} }
 
 -- gradient related types
-type BoundGradients = { [string]: {GradientImageAsset, boolean} }
+type BoundGradients = { [string]: {GradientImageAsset | boolean} }
 
 -- parsed text related types
 type ParsedToken = string | { string | number }
@@ -95,6 +95,7 @@ local EPBBText = {
 			Length = 6,
 			Images = 7,
 			isOutputting = 8,
+			Metadata = 9
 		},
 
 		Tags = {
@@ -140,12 +141,19 @@ EPBBText.__index = EPBBText
 -- private
 
 -- private values that aren't allowed to be accessed
+
+local ParsedText_Value: ParsedText
+local EPBBTextMetadata_Value: MetadataMap
+local Length_Value: number
+local isOutputting_Value: boolean
+local isTypewriterLock_Value: boolean
+
 local Private = {
-    ParsedText: ParsedText = {},
-    EPBBTextMetadata: MetadataMap = {},
-    Length: number = 0,
-    isOutputting: boolean = false,
-    isTypewriterLock = false,
+    ParsedText = ParsedText_Value,
+    EPBBTextMetadata = EPBBTextMetadata_Value,
+    Length = Length_Value,
+    isOutputting = isOutputting_Value,
+    isTypewriterLock = isTypewriterLock_Value,
 }
 
 --[[
@@ -506,12 +514,15 @@ function EPBBText:Get(Property: number): any
 		[EPBBText.Enums.Property.Length] = function() return Private.Length end,
 		[EPBBText.Enums.Property.Images] = function() return Private.Images end,
 		[EPBBText.Enums.Property.isOutputting] = function() return Private.isOutputting end,
+		[EPBBText.ENums.Property.Metadata] = function() return Private.EPBBTextMetadata end
 	}
 
     -- checks if value is returned via a functionnil
-	if typeof(LookupTable[Property]) == "function" | "PTFunction" | "PTCallback" then
-        local LookupTable[Property] = callback
+	if typeof(LookupTable[Property]) == ("function" or "PTFunction" or "PTCallback") then
+        local callback = LookupTable[Property] 
         return callback()
+	elseif LookupTable[Property] == nil then
+		error("EPBBCode: Property enum " .. tostring(Property) .. " could not access a property.")
     else
         return LookupTable[Property]
     end
@@ -676,7 +687,7 @@ to true.
 function EPBBText:Bind(EPBBType: number, BoundName: string, Value: Bindable, unbind_when_called: boolean)
     if EPBBType == EPBBText.Enums.EPBBTypes.Function then
         local EPBBFunction = Value
-        if typeof(EPBBFunction) ~= "PTCallback" | "PTFunction" then
+        if typeof(EPBBFunction) ~= ("PTCallback" or "PTFunction") then
             error("EPBBCode: Tried to bind type Function to EPBBText but Value was not of type PTCallback or PTFunction")
         end
 
@@ -700,7 +711,7 @@ function EPBBText:Bind(EPBBType: number, BoundName: string, Value: Bindable, unb
             unbind_when_called = false
         end
 
-        self.EPBBTextBoundImages[BoundName] == {EPBBImage, unbind_when_called}
+        self.EPBBTextBoundImages[BoundName] = {EPBBImage, unbind_when_called}
     
     elseif EPBBType == EPBBText.Enums.EPBBTypes.Image_Sequence then
         local EPBBImage_Sequence = {

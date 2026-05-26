@@ -15,7 +15,7 @@ local thing: string = ""
 local out: string = EPBBText:TypewriterOut(thing)
 print(out, "LENGTH: " .. tostring(#out))
 print("------------------------metadata-----------------------")
-for data_type, data in pairs(EPBBText.EPBBTextMetadata) do
+for data_type, data in pairs(EPBBText:Get(EPBBCode.Enums.Property.Metadata)) do
 	print("---------" .. tostring(data_type) .. "-----------")
 	for column, piece in pairs(data) do
 		print("-------" .. column .. "---------")
