@@ -93,9 +93,8 @@ local EPBBText = {
 			typewriterSpeed = 4,
 			ParsedText = 5,
 			Length = 6,
-			Images = 7,
-			isOutputting = 8,
-			Metadata = 9
+			isOutputting = 7,
+			Metadata = 8
 		},
 
 		Tags = {
@@ -146,16 +145,6 @@ local ParsedText_Value: ParsedText
 local EPBBTextMetadata_Value: MetadataMap
 local Length_Value: number
 local isOutputting_Value: boolean
-local isTypewriterLock_Value: boolean
-
-local Private = {
-    ParsedText = ParsedText_Value,
-    EPBBTextMetadata = EPBBTextMetadata_Value,
-    Length = Length_Value,
-    isOutputting = isOutputting_Value,
-    isTypewriterLock = isTypewriterLock_Value,
-}
-
 --[[
 Example EPBBCode tag:
 <[func='PlayACutscene', args={CutsceneName=First_cutscene, Local=true, Duration=10}]>!</[func]>
@@ -308,7 +297,7 @@ local function ParseTypewriterText(RawText: string)
 	local close_tag_length = nil
 
 	local text_buffer = {}
-	local total_epbbcodetag_length = 0
+	local total_tag_length = 0
 
 	local result = {}
 	local metadata = {}
@@ -356,6 +345,7 @@ local function ParseTypewriterText(RawText: string)
 
 			-- short by 1 character, so just have a +1
 			open_tag_length = open_tag_end - open_tag_start + 1
+			total_tag_length += open_tag_length
 
 			current_segment_type = EPBBText.Enums.Tags.BBCode_Open_Tag
 			if previous_segment_type == nil then
@@ -373,6 +363,7 @@ local function ParseTypewriterText(RawText: string)
 
 			-- short by 1 character, so just have a +1
 			close_tag_length = close_tag_end - close_tag_start + 1
+			total_tag_length += close_tag_length
 
 			current_segment_type = EPBBText.Enums.Tags.BBCode_Close_Tag
 			if previous_segment_type == nil then
@@ -398,7 +389,7 @@ local function ParseTypewriterText(RawText: string)
 
 		-- IF EPBBCode_Open_Tag (custom tags)
 		elseif state == states.EPBBCODE_OPEN then
-			local column_location = i - total_epbbcodetag_length
+			local column_location = i - total_tag_length
 
 			open_tag_start = i
 			_, open_tag_end = RawText:find("]>", open_tag_start, true)
@@ -409,7 +400,7 @@ local function ParseTypewriterText(RawText: string)
 
 			-- short by 1 character, so just have a +1
 			open_tag_length = open_tag_end - open_tag_start + 1
-			total_epbbcodetag_length += open_tag_length
+			total_tag_length += open_tag_length
 
 			current_segment_type = EPBBText.Enums.Tags.EPBBCode_Open_Tag
 
@@ -442,7 +433,7 @@ local function ParseTypewriterText(RawText: string)
 
 			-- short by 1 character, so just have a +1
 			close_tag_length = close_tag_end - i + 1
-			total_epbbcodetag_length += close_tag_length
+			total_tag_length += close_tag_length
 
 			current_segment_type = EPBBText.Enums.Tags.EPBBCode_Close_Tag
 			if previous_segment_type == nil then
@@ -496,6 +487,8 @@ local function Update(args: {}): nil
 	return
 end
 
+-- gets length of a string without any bbcode or epbbcode tags polluting the string length
+-- uses parsed text and checks each segment to see if it's a tag
 local function GetParsedTextLength(ParsedText: ParsedText): number
 
 end
@@ -510,15 +503,15 @@ function EPBBText:Get(Property: number): any
 		[EPBBText.Enums.Property.isTypewriter] = self.isTypewriter,
 		[EPBBText.Enums.Property.isPaused] = self.isPaused,
 		[EPBBText.Enums.Property.typewriterSpeed] = self.typewriterSpeed,
-		[EPBBText.Enums.Property.ParsedText] = function() return Private.ParsedText end,
-		[EPBBText.Enums.Property.Length] = function() return Private.Length end,
-		[EPBBText.Enums.Property.Images] = function() return Private.Images end,
-		[EPBBText.Enums.Property.isOutputting] = function() return Private.isOutputting end,
-		[EPBBText.ENums.Property.Metadata] = function() return Private.EPBBTextMetadata end
+		[EPBBText.Enums.Property.ParsedText] = function() return ParsedText_Value end,
+		[EPBBText.Enums.Property.Length] = function() return Length_Value end,
+		[EPBBText.Enums.Property.isOutputting] = function() return isOutputting_Value end,
+		[EPBBText.Enums.Property.Metadata] = function() return EPBBTextMetadata_Value end
 	}
 
-    -- checks if value is returned via a functionnil
-	if typeof(LookupTable[Property]) == ("function" or "PTFunction" or "PTCallback") then
+    -- checks if value is returned via a function
+	local prop_type = typeof(LookupTable[Property])
+	if  (prop_type == "function") then
         local callback = LookupTable[Property] 
         return callback()
 	elseif LookupTable[Property] == nil then
@@ -570,7 +563,7 @@ end
 function EPBBText:Out(output_location: UILabel | string): string | nil
 	self.isOutputting = true
 
-	if self.isTypewriter or Private.isTypewriterLock then
+	if self.isTypewriter then
 		print(
 			"EPBBCode: self.isTypewritter is set to true, did you mean to call TypewriterOut()? continuing output regardless"
 		)
@@ -595,20 +588,18 @@ sets output_location.Text to be string + the current segment
 --]]
 --
 function EPBBText:TypewriterOut(output_location: UILabel | string): string | nil
-	Private.isOutputting = true
+	isOutputting_Value = true
 	local is_output_nil = false
 
-	if not self.isTypewriter and not Private.isTypewriterLock then
+	if not self.isTypewriter then
 		error("EPBBCode: self.isTypewriter set to false, did you mean to call Out() instead? Ending output.", 2)
 	end
 
-    Private.isTypewriterLock = true
-
 	local output_string = ""
-	for column, segment in pairs(Private.ParsedText) do
-		if not self.isTypewriter and not Private.isTypewriterLock then
+	for column, segment in pairs(ParsedText_Value) do
+		if not self.isTypewriter then
 			error(
-				"EPBBCode: self.isTypewriter set to false while outputting segments, ending output (why and how would you do that)",
+				"EPBBCode: self.isTypewriter set to false while outputting segments, ending output (why would you do that)",
 				2
 			)
 		end
@@ -684,43 +675,32 @@ If it cannot be found, it'll return end.
 Note that bound names with their types can be re-used along with their value, so if you need to, set "unbind_when_called"
 to true.
 ]]--
-function EPBBText:Bind(EPBBType: number, BoundName: string, Value: Bindable, unbind_when_called: boolean)
+function EPBBText:Bind(EPBBType: number, BoundName: string, Value: Bindable, unbind_when_called: boolean?)
+	-- default
+	local unbind_when_called_val = unbind_when_called or false
+
     if EPBBType == EPBBText.Enums.EPBBTypes.Function then
         local EPBBFunction = Value
         if typeof(EPBBFunction) ~= ("PTCallback" or "PTFunction") then
             error("EPBBCode: Tried to bind type Function to EPBBText but Value was not of type PTCallback or PTFunction")
         end
 
-        if unbind_when_called == nil then
-            unbind_when_called = false
-        end
+		-- get args from tag
 
-        self.EPBBTextBoundFunctions[BoundName] = {EPBBFunction, unbind_when_called}
+        self.EPBBTextBoundFunctions[BoundName] = {EPBBFunction, unbind_when_called_val}
     
     elseif EPBBType == EPBBText.Enums.EPBBTypes.Image then
-        local EPBBImage = {
-            isCached = Value.isCached,
-            ImageID = Value.ImageID
-        }
-        -- checking for img id (which is a number)
-        if typeof(EPBBImage) ~= number then
-            error("EPBBCode: Tried to bind type Image to EPBBText but Value was not of type Number")
-        end
-
-        if unbind_when_called == nil then
-            unbind_when_called = false
-        end
-
-        self.EPBBTextBoundImages[BoundName] = {EPBBImage, unbind_when_called}
-    
+		-- get args from tag
     elseif EPBBType == EPBBText.Enums.EPBBTypes.Image_Sequence then
-        local EPBBImage_Sequence = {
-            Images = Value.Images,
-            isLooping = Value.isLooping,
-            isCached = Value.isCached
-        }
+        -- get args from tag
     elseif EPBBType == EPBBText.Enums.EPBBTypes.BindableEvent then
-
+		-- get args from tag
+	elseif EPBBType == EPBBText.Enums.EPBBTypes.NetworkEvent then
+		-- get args from tag
+	elseif EPBBType == EPBBText.Enums.EPBBTypes.Animation then
+		-- get args from tag
+	elseif EPBBType == EPBBText.Enums.EPBBTypes.Gradient then
+		-- I SAID GET ARGS FROM TAG!!
     end
 end
 
@@ -735,12 +715,12 @@ function EPBBText.New(RawText: string, isTypewriter: boolean): EPBBTextPropertie
 
 	if isTypewriter then
 		local ParsedText, Metadata = ParseTypewriterText(RawText)
-		Private.ParsedText = ParsedText
-		Private.EPBBTextMetadata = Metadata
+		ParsedText_Value = ParsedText
+		EPBBTextMetadata_Value = Metadata
 	else
 		local ParsedText, Metadata = ParseRegularText(RawText)
-		Private.ParsedText = ParsedText
-		Private.EPBBTextMetadata = Metadata
+		ParsedText_Value = ParsedText
+		EPBBTextMetadata_Value = Metadata
 	end
 
 	return self

@@ -3,6 +3,9 @@ local EPBBCode = require("./EPBBCode")
 
 print("debug test suite!")
 
+-- issue with this edgecase
+-- the regular color bbcode tag is processed as regular text (NOT GOOD) when put inside of a EPBBCode tag (the function one)
+-- fix this later as it shouldn't process the bbcode tag as regular text, and instead should be appended per-tag
 local EPBBText = EPBBCode.New(
 	"test, test, <[func='function', args={foo=bar}]>[color=red]red[/color]</[func]> and [b]bold[/b] andredredredredredredredredredredredredredredredredredredredredredredredredredredredredredredredred <[func='function', args={foo=bar}]>[color=red]red[/color]</[func]> [b]bold[/b] and <[func='function', args={foo=bar}]>[color=red]red[/color]</[func]>",
 	true
