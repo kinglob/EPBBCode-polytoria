@@ -36,8 +36,10 @@ type BoundGradients = { [string]: GradientImageAsset }
 -- parsed text related types
 type ParsedToken = string | { string | number }
 type ParsedText = { ParsedToken }
+
+-- metadata related types
 type Metadata = { [string]: any }
-type ParsedTextMetadata = { [number]: Metadata }
+type MetadataMap = { [string]: {[number]: table} }
 
 -- bindable types
 type Bindable =
@@ -62,7 +64,7 @@ export type EPBBTextProperties = {
 
 	-- read only
 	ParsedText: ParsedText,
-	EPBBTextMetadata: ParsedTextMetadata,
+	EPBBTextMetadata: MetadataMap,
 	Length: number,
 	isOutputting: boolean,
 
@@ -107,13 +109,13 @@ local EPBBText = {
 		},
 
 		EPBBTypes = {
-			Function = 1,
-			Image = 2,
-			Image_Sequence = 3,
-			BindableEvent = 4,
-			NetworkEvent = 5,
-			Animation = 6,
-			Gradient = 7,
+			Function = "Function",
+			Image = "Image",
+			Image_Sequence = "ImageSequence",
+			BindableEvent = "BindableEvent",
+			NetworkEvent = "NetworkEvent",
+			Animation = "Animation",
+			Gradient = "Gradient",
 		},
 
 		SegmentTypes = {
@@ -178,13 +180,13 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 	local tag_type = Tag:sub(tag_start + 2, valueDeclaration - 1)
 
 	local TypeLookupTable = {
-		["func"] = { [1] = "Function", [2] = "String" }, -- will find a corresponding Function
-		["img"] = { [1] = "Image", [2] = "Number" }, -- will find a correspending Image
-		["img_seq"] = { [1] = "Image Sequence", [2] = "Table" }, -- will find a corresponding Image Sequence table
-		["event"] = { [1] = "Client Event", [2] = "String" }, -- will find a correspending BindableEvent
-		["netevent"] = { [1] = "Server Event", [2] = "String" }, -- will find a corresponding NetworkEvent
-		["anim"] = { [1] = "Animation", [2] = "String" }, -- will find a corresponding TweenObject
-		["gradient"] = { [1] = "Gradient", [2] = "String" }, -- will find a corresponding GradientImageAsset
+		["func"] = { [1] = EPBBText.Enums.EPBBTypes.Function, [2] = "String" }, -- will find a corresponding Function
+		["img"] = { [1] = EPBBText.Enums.EPBBTypes.Image, [2] = "Number" }, -- will find a correspending Image
+		["img_seq"] = { [1] = EPBBText.Enums.EPBBTypes.Image_Sequence, [2] = "Table" }, -- will find a corresponding Image Sequence table
+		["event"] = { [1] = EPBBText.Enums.EPBBTypes.BindableEvent, [2] = "String" }, -- will find a correspending BindableEvent
+		["netevent"] = { [1] = EPBBText.Enums.EPBBTypes.NetworkEvent, [2] = "String" }, -- will find a corresponding NetworkEvent
+		["anim"] = { [1] = EPBBText.Enums.EPBBTypes.Animation, [2] = "String" }, -- will find a corresponding TweenObject
+		["gradient"] = { [1] = EPBBText.Enums.EPBBTypes.Gradient, [2] = "String" }, -- will find a corresponding GradientImageAsset
 	}
 
 	local typeData = TypeLookupTable[tag_type]
@@ -260,12 +262,6 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 	return data
 end
 
-local function GetEPBBCodeTagPriorityOrder(EPBBCodeTagBuffer: {})
-	local ordered = {}
-
-	return EPBBCodeTagBuffer
-end
-
 --[[
 Parses RawText into a machine-readable format.
 If isTypewriter is enabled, it'll parse it into per-letter segments, ignoring tags.
@@ -299,8 +295,7 @@ local function ParseTypewriterText(RawText: string)
 	local close_tag_length = nil
 
 	local text_buffer = {}
-	local epbbcode_tag_buffer = {}
-	local total_tag_length = 0
+	local total_epbbcodetag_length = 0
 
 	local result = {}
 	local metadata = {}
@@ -348,7 +343,6 @@ local function ParseTypewriterText(RawText: string)
 
 			-- short by 1 character, so just have a +1
 			open_tag_length = open_tag_end - open_tag_start + 1
-			total_tag_length += open_tag_length
 
 			current_segment_type = EPBBText.Enums.Tags.BBCode_Open_Tag
 			if previous_segment_type == nil then
@@ -366,7 +360,6 @@ local function ParseTypewriterText(RawText: string)
 
 			-- short by 1 character, so just have a +1
 			close_tag_length = close_tag_end - close_tag_start + 1
-			total_tag_length += close_tag_length
 
 			current_segment_type = EPBBText.Enums.Tags.BBCode_Close_Tag
 			if previous_segment_type == nil then
@@ -392,7 +385,7 @@ local function ParseTypewriterText(RawText: string)
 
 		-- IF EPBBCode_Open_Tag (custom tags)
 		elseif state == states.EPBBCODE_OPEN then
-			local column_location = i - total_tag_length
+			local column_location = i - total_epbbcodetag_length
 
 			open_tag_start = i
 			_, open_tag_end = RawText:find("]>", open_tag_start, true)
@@ -403,7 +396,7 @@ local function ParseTypewriterText(RawText: string)
 
 			-- short by 1 character, so just have a +1
 			open_tag_length = open_tag_end - open_tag_start + 1
-			total_tag_length += open_tag_length
+			total_epbbcodetag_length += open_tag_length
 
 			current_segment_type = EPBBText.Enums.Tags.EPBBCode_Open_Tag
 
@@ -414,7 +407,18 @@ local function ParseTypewriterText(RawText: string)
 				previous_segment_type = EPBBText.Enums.Tags.EPBBCode_Open_Tag
 			end
 
-			epbbcode_tag_buffer[#epbbcode_tag_buffer + 1] = GetEPBBCodeTagData(full_tag, column_location)
+            local tag_metadata = GetEPBBCodeTagData(full_tag, column_location)
+            -- sort by type string
+            local tag_type = tag_metadata[EPBBText.Enums.SegmentProperty.Type]
+
+            if metadata[tag_type] == nil then
+                metadata[tag_type] = {}
+                metadata[tag_type][column_location] = tag_metadata
+            else
+                metadata[tag_type][column_location] = tag_metadata
+            end
+
+			
 
 			i += 1
 
@@ -424,8 +428,8 @@ local function ParseTypewriterText(RawText: string)
 			_, close_tag_end = RawText:find("]>", close_tag_start, true)
 
 			-- short by 1 character, so just have a +1
-			close_tag_length = close_tag_end - open_tag_start + 1
-			total_tag_length += close_tag_length
+			close_tag_length = close_tag_end - i + 1
+			total_epbbcodetag_length += close_tag_length
 
 			current_segment_type = EPBBText.Enums.Tags.EPBBCode_Close_Tag
 			if previous_segment_type == nil then
@@ -450,12 +454,11 @@ local function ParseTypewriterText(RawText: string)
 		state = nil
 	end
 
-	metadata = GetEPBBCodeTagPriorityOrder(epbbcode_tag_buffer)
-
 	return result, metadata
 end
 
-local function ParseRegularText(RawText: string) end
+local function ParseRegularText(RawText: string)
+end
 
 --[[
 Gets called everytime ParsedText RawText, isTypewriter and isPaused is changed.
@@ -641,6 +644,20 @@ function EPBBText:TypewriterOut(output_location: UILabel | string): string | nil
 
 	self.isOutputting = false
 	return output_string
+end
+
+--[[
+Bind a name to a specific function type.
+When a EPBBCode tag is found on a specific column, it will automatically search
+for the bound name(s) in the specified type(s) until it is found.
+If it cannot be found, it'll return end.
+]]--
+function EPBBText:Bind(EPBBType: number, BoundName: string)
+
+end
+
+function EPBBText:Unbind(EPBBType: number, BoundName: string)
+
 end
 
 function EPBBText.New(RawText: string, isTypewriter: boolean): EPBBTextProperties

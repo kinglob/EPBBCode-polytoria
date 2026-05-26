@@ -15,9 +15,12 @@ local thing: string = ""
 local out: string = EPBBText:TypewriterOut(thing)
 print(out, "LENGTH: " .. tostring(#out))
 print("------------------------metadata-----------------------")
-for _, data in pairs(EPBBText.EPBBTextMetadata) do
-	print("---------" .. tostring(_) .. "-----------")
-	for _, piece in pairs(data) do
-		print(_, piece)
+for data_type, data in pairs(EPBBText.EPBBTextMetadata) do
+	print("---------" .. tostring(data_type) .. "-----------")
+	for column, piece in pairs(data) do
+		print("-------" .. column .. "---------")
+		for _, info in pairs(piece) do
+			print(_, info)
+		end
 	end
 end
