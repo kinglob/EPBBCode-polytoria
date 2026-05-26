@@ -1,7 +1,7 @@
 --!nocheck
 
 -- function related types
-type BoundFunctions = { [string]: PTCallback }
+type BoundFunctions = { [string]: {PTCallback | PTFunction, boolean} }
 
 -- image related types
 type BoundImage = {
@@ -9,7 +9,7 @@ type BoundImage = {
 	ImageID: number,
 }
 
-type BoundImages = { [string]: BoundImage }
+type BoundImages = { [string]: {BoundImage, boolean} }
 
 -- image sequence related types
 type ImageSequence = {
@@ -18,20 +18,20 @@ type ImageSequence = {
 	isCached: boolean,
 }
 
-type BoundImageSequences = { [string]: ImageSequence }
+type BoundImageSequences = { [string]: {ImageSequence, boolean} }
 
 -- event related types
 -- bindable / client
-type BoundEvents = { [string]: PTSignal }
+type BoundEvents = { [string]: {PTSignal | BindableEvent, boolean} }
 
 -- server / network
-type BoundNetworkEvents = { [string]: NetworkEvent }
+type BoundNetworkEvents = { [string]: {NetworkEvent | PTSignal, boolean} }
 
 -- animation related types
-type BoundAnimations = { [string]: TweenObject }
+type BoundAnimations = { [string]: {TweenObject, boolean} }
 
 -- gradient related types
-type BoundGradients = { [string]: GradientImageAsset }
+type BoundGradients = { [string]: {GradientImageAsset, boolean} }
 
 -- parsed text related types
 type ParsedToken = string | { string | number }
@@ -44,10 +44,12 @@ type MetadataMap = { [string]: {[number]: table} }
 -- bindable types
 type Bindable =
 	PTCallback
+    | PTFunction
 	| BoundImage
 	| BoundImage
 	| ImageSequence
 	| PTSignal
+    | BindableEvent
 	| NetworkEvent
 	| TweenObject
 	| GradientImageAsset
@@ -651,9 +653,48 @@ Bind a name to a specific function type.
 When a EPBBCode tag is found on a specific column, it will automatically search
 for the bound name(s) in the specified type(s) until it is found.
 If it cannot be found, it'll return end.
-]]--
-function EPBBText:Bind(EPBBType: number, BoundName: string)
 
+Note that bound names with their types can be re-used along with their value, so if you need to, set "unbind_when_called"
+to true.
+]]--
+function EPBBText:Bind(EPBBType: number, BoundName: string, Value: Bindable, unbind_when_called: boolean)
+    if EPBBType == EPBBText.Enums.EPBBTypes.Function then
+        local EPBBFunction = Value
+        if typeof(EPBBFunction) ~= "PTCallback" | "PTFunction" then
+            error("EPBBCode: Tried to bind type Function to EPBBText but Value was not of type PTCallback or PTFunction")
+        end
+
+        if unbind_when_called == nil then
+            unbind_when_called = false
+        end
+
+        self.EPBBTextBoundFunctions[BoundName] = {EPBBFunction, unbind_when_called}
+    
+    elseif EPBBType == EPBBText.Enums.EPBBTypes.Image then
+        local EPBBImage = {
+            isCached = Value.isCached,
+            ImageID = Value.ImageID
+        }
+        -- checking for img id (which is a number)
+        if typeof(EPBBImage) ~= number then
+            error("EPBBCode: Tried to bind type Image to EPBBText but Value was not of type Number")
+        end
+
+        if unbind_when_called == nil then
+            unbind_when_called = false
+        end
+
+        self.EPBBTextBoundImages[BoundName] == {EPBBImage, unbind_when_called}
+    
+    elseif EPBBType == EPBBText.Enums.EPBBTypes.Image_Sequence then
+        local EPBBImage_Sequence = {
+            Images = Value.Images,
+            isLooping = Value.isLooping,
+            isCached = Value.isCached
+        }
+    elseif EPBBType == EPBBText.Enums.EPBBTypes.BindableEvent then
+        
+    end
 end
 
 function EPBBText:Unbind(EPBBType: number, BoundName: string)
