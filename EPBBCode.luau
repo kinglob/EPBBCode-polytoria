@@ -64,12 +64,6 @@ export type EPBBTextProperties = {
 	-- immutable while outputting
 	isTypewriter: boolean,
 
-	-- read only
-	ParsedText: ParsedText,
-	EPBBTextMetadata: MetadataMap,
-	Length: number,
-	isOutputting: boolean,
-
 	-- modified through methods only
 	EPBBTextBoundFunctions: BoundFunctions,
 	EPBBTextBoundImages: BoundImages,
@@ -144,6 +138,15 @@ local EPBBText = {
 EPBBText.__index = EPBBText
 
 -- private
+
+-- private values that aren't allowed to be accessed
+local Private = {
+    ParsedText: ParsedText = {},
+    EPBBTextMetadata: MetadataMap = {},
+    Length: number = 0,
+    isOutputting: boolean = false,
+    isTypewriterLock = false,
+}
 
 --[[
 Example EPBBCode tag:
@@ -485,8 +488,13 @@ local function Update(args: {}): nil
 	return
 end
 
+local function GetParsedTextLength(ParsedText: ParsedText): number
+
+end
+
 -- public
 
+-- gets a property
 function EPBBText:Get(Property: number): any
 	-- lookup table for avoiding if-else chains
 	local LookupTable = {
@@ -494,13 +502,19 @@ function EPBBText:Get(Property: number): any
 		[EPBBText.Enums.Property.isTypewriter] = self.isTypewriter,
 		[EPBBText.Enums.Property.isPaused] = self.isPaused,
 		[EPBBText.Enums.Property.typewriterSpeed] = self.typewriterSpeed,
-		[EPBBText.Enums.Property.ParsedText] = self.ParsedText,
-		[EPBBText.Enums.Property.Length] = self.Length,
-		[EPBBText.Enums.Property.Images] = self.Images,
-		[EPBBText.Enums.Property.isOutputting] = self.isOutputting,
+		[EPBBText.Enums.Property.ParsedText] = function() return Private.ParsedText end,
+		[EPBBText.Enums.Property.Length] = function() return Private.Length end,
+		[EPBBText.Enums.Property.Images] = function() return Private.Images end,
+		[EPBBText.Enums.Property.isOutputting] = function() return Private.isOutputting end,
 	}
 
-	return LookupTable[Property]
+    -- checks if value is returned via a functionnil
+	if typeof(LookupTable[Property]) == "function" | "PTFunction" | "PTCallback" then
+        local LookupTable[Property] = callback
+        return callback()
+    else
+        return LookupTable[Property]
+    end
 end
 
 function EPBBText:Set(Property: number, Value: any): EPBBTextProperties
@@ -542,10 +556,10 @@ function EPBBText:Set(Property: number, Value: any): EPBBTextProperties
 	return self
 end
 
-function EPBBText:Out(output_location: UILabel): nil
+function EPBBText:Out(output_location: UILabel | string): string | nil
 	self.isOutputting = true
 
-	if self.isTypewriter then
+	if self.isTypewriter or Private.isTypewriterLock then
 		print(
 			"EPBBCode: self.isTypewritter is set to true, did you mean to call TypewriterOut()? continuing output regardless"
 		)
@@ -570,18 +584,20 @@ sets output_location.Text to be string + the current segment
 --]]
 --
 function EPBBText:TypewriterOut(output_location: UILabel | string): string | nil
-	self.isOutputting = true
+	Private.isOutputting = true
 	local is_output_nil = false
 
-	if not self.isTypewriter then
+	if not self.isTypewriter and not Private.isTypewriterLock then
 		error("EPBBCode: self.isTypewriter set to false, did you mean to call Out() instead? Ending output.", 2)
 	end
 
+    Private.isTypewriterLock = true
+
 	local output_string = ""
-	for column, segment in pairs(self.ParsedText) do
-		if not self.isTypewriter then
+	for column, segment in pairs(Private.ParsedText) do
+		if not self.isTypewriter and not Private.isTypewriterLock then
 			error(
-				"EPBBCode: self.isTypewriter set to false while outputting segments, ending output (why would you do that)",
+				"EPBBCode: self.isTypewriter set to false while outputting segments, ending output (why and how would you do that)",
 				2
 			)
 		end
@@ -693,7 +709,7 @@ function EPBBText:Bind(EPBBType: number, BoundName: string, Value: Bindable, unb
             isCached = Value.isCached
         }
     elseif EPBBType == EPBBText.Enums.EPBBTypes.BindableEvent then
-        
+
     end
 end
 
@@ -708,12 +724,12 @@ function EPBBText.New(RawText: string, isTypewriter: boolean): EPBBTextPropertie
 
 	if isTypewriter then
 		local ParsedText, Metadata = ParseTypewriterText(RawText)
-		self.ParsedText = ParsedText
-		self.EPBBTextMetadata = Metadata
+		Private.ParsedText = ParsedText
+		Private.EPBBTextMetadata = Metadata
 	else
 		local ParsedText, Metadata = ParseRegularText(RawText)
-		self.ParsedText = ParsedText
-		self.EPBBTextMetadata = Metadata
+		Private.ParsedText = ParsedText
+		Private.EPBBTextMetadata = Metadata
 	end
 
 	return self
