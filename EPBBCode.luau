@@ -675,7 +675,7 @@ function EPBBText:TypewriterOut(output_location: UILabel | string | {string} | S
 	local total_tag_length = { Value = 0 }
 
 	local thread = coroutine.create(function()
-		for column, segment in pairs(ParsedText_Value) do
+		for column, segment in ipairs(ParsedText_Value) do
 			if not self.isTypewriter then
 				error("EPBBCode: self.isTypewriter set to false while outputting segments, ending output (why would you do that)", 2)
 			end
@@ -719,6 +719,8 @@ function EPBBText:TypewriterOut(output_location: UILabel | string | {string} | S
 			if onUpdate then
 				onUpdate(output_string.Value)
 			end
+		else
+			wait(0.25)
 		end
 	end
 
@@ -741,7 +743,7 @@ function EPBBText:Bind(EPBBType: number, BoundName: string, Value: Bindable, unb
 
     if EPBBType == EPBBText.Enums.EPBBTypes.Function then
         local EPBBFunction = Value
-        if typeof(EPBBFunction) ~= ("PTCallback" or "PTFunction") then
+        if typeof(EPBBFunction) ~= "PTCallback" and typeof(EPBBFunction) ~= "PTFunction" then
             error("EPBBCode: Tried to bind type Function to EPBBText but Value was not of type PTCallback or PTFunction")
         end
 
