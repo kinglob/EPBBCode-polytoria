@@ -15,8 +15,23 @@ print(EPBBText:Get(EPBBCode.Enums.Property.ParsedText), "printing ParsedText")
 
 print("------------------using typewriterout method--------")
 local thing: string = ""
-local out: string = EPBBText:TypewriterOut(thing)
+local thing_ref = { out = ""}
+
+-- testing by reference, try to make this more user-friendly if possible
+--local out: string = EPBBText:TypewriterOut(thing_ref)
+local out = EPBBText:TypewriterOut(thing)
+local istrue = true
+while istrue do
+	EPBBText:TypewriterOut(thing_ref)
+	print(thing_ref.out)
+	if out == thing_ref.out then istrue = false end
+end
+print("----------------reference result------------")
+print(thing_ref.out, "LENGTH: " .. tostring(#thing_ref.out))
+
+print("----------------the rebuilt string---------------")
 print(out, "LENGTH: " .. tostring(#out))
+
 print("------------------------metadata-----------------------")
 for data_type, data in pairs(EPBBText:Get(EPBBCode.Enums.Property.Metadata)) do
 	print("---------" .. tostring(data_type) .. "-----------")

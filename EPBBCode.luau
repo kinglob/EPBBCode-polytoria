@@ -168,8 +168,8 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 		[EPBBText.Enums.SegmentProperty.Type] = nil,
 		[EPBBText.Enums.SegmentProperty.Value] = nil,
 		[EPBBText.Enums.SegmentProperty.Args] = nil,
-		[EPBBText.Enums.SegmentProperty.WrappedText] = nil,
-		[EPBBText.Enums.SegmentProperty.OutsideText] = nil,
+		[EPBBText.Enums.SegmentProperty.WrappedText] = {},
+		[EPBBText.Enums.SegmentProperty.OutsideText] = {},
 		[EPBBText.Enums.SegmentProperty.CloseTagLength] = nil,
 		[EPBBText.Enums.SegmentProperty.Column] = Column,
 		[EPBBText.Enums.SegmentProperty.SegmentType] = EPBBText.Enums.SegmentTypes.EPBBCode_Metadata,
@@ -254,7 +254,7 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 				if open_bbcode_tag_end == nil then
 					error("EPBBCode: Couldn't find end of an opening BBCode tag wrapped inside of an EPBBCode tag!", 2)
 				end
-				local open_bbcode_tag = wrapped_text:sub(open_bbcode_tag_start. open_bbcode_tag_end)
+				local open_bbcode_tag = wrapped_text:sub(open_bbcode_tag_start, open_bbcode_tag_end)
 				wrapped_text_data[#wrapped_text_data + 1] = open_bbcode_tag
 				
 				local close_bbcode_tag_start = wrapped_text:find("[/", open_bbcode_tag_end, true)
@@ -271,14 +271,18 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 
 					wrapped_text_data[#wrapped_text_data + 1] = close_bbcode_tag
 
-					-- get characters wrapped in the bbcode data
-					local text_in_bbcode_tags = wrapped_text:sub(open_bbcode_tag_end, close_bbcode_tag_start)
+					-- get characters wrapped in the bbcode tags
+					-- +1 to avoid the ], -1 to avoid the [
+					local text_in_bbcode_tags = wrapped_text:sub(open_bbcode_tag_end + 1, close_bbcode_tag_start - 1)
+					local i = 1					local i = 1
+
 					while i <= #text_in_bbcode_tags do
 						wrapped_text_data[#wrapped_text_data + 1] = {
-							[EPBBText.Enums.SegmentProperty.Text] = text_buffer[text_index],
+							[EPBBText.Enums.SegmentProperty.Text] = text_in_bbcode_tags:sub(i, i),
 							[EPBBText.Enums.SegmentProperty.CloseTagLength] = close_tag_length,
 							[EPBBText.Enums.SegmentProperty.SegmentType] = EPBBText.Enums.SegmentTypes.Offset_Character,
 						}
+						i += 1
 					end
 				end
 			end
@@ -602,7 +606,7 @@ function EPBBText:Out(output_location: UILabel | string): string | nil
 	self.isOutputting = true
 
 	if self.isTypewriter then
-		print(
+		warn(
 			"EPBBCode: self.isTypewritter is set to true, did you mean to call TypewriterOut()? continuing output regardless"
 		)
 	end
@@ -624,15 +628,15 @@ end
 returns a string being the output string going to the output location
 sets output_location.Text to be string + the current segment
 --]]
-function EPBBText:TypewriterOut(output_location: UILabel | string): string | nil
+function EPBBText:TypewriterOut(output_location: UILabel | string | {string}): string | nil
 	isOutputting_Value = true
-	local is_output_nil = false
 
 	if not self.isTypewriter then
 		error("EPBBCode: self.isTypewriter set to false, did you mean to call Out() instead? Ending output.", 2)
 	end
 
 	local output_string = ""
+
 	for column, segment in pairs(ParsedText_Value) do
 		if not self.isTypewriter then
 			error(
@@ -648,26 +652,23 @@ function EPBBText:TypewriterOut(output_location: UILabel | string): string | nil
 			if segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.Offset_Character then
 				local segment_character = segment[EPBBText.Enums.SegmentProperty.Text]
 				local segment_offset = segment[EPBBText.Enums.SegmentProperty.CloseTagLength]
-				print(segment_character, segment_offset)
 
 				local string_first_half = output_string:sub(1, #output_string - segment_offset)
 				-- +1 to avoid trailing characters from the tag
 				local string_second_half = output_string:sub(#output_string - segment_offset + 1, -1)
 
+				-- wait set typewriter speed before setting new output string (doesn't work on non-polytoria environment)
+				--wait(self.typewriterSpeed)
 				output_string = string_first_half .. segment_character .. string_second_half
-
-				if output_location == nil then
-					if not is_output_nil then
-						is_output_nil = true
-						warn(
-							"EPBBCode: output_location parameter was not set to a UILabel or string variable and was found to be nil. This will only return an output string and this warning will not repeat."
-						)
-					end
-					continue
+				if typeof(output_location) == "UILabel" then
+					output_location.Text = output_string
 				elseif typeof(output_location) == "string" then
 					output_location = output_string
+				elseif typeof(output_location) == "table" then
+					--warn("EPBBText: Output location is a table; are you passing a string by reference? Note there's better ways to do this.")
+					output_location.out = output_string
 				else
-					output_location.Text = output_string
+					error("EPBBText: Output location variable is type of " .. typeof(output_location) .. " whic is unsupported!", 2)
 				end
 
 				continue
@@ -692,8 +693,19 @@ function EPBBText:TypewriterOut(output_location: UILabel | string): string | nil
 
 		-- if the segment is a regular character / text
 		else
-			print("segment is not table: ", segment, column)
+			-- wait set typewriter speed before setting new output string (doesn't work on non-polytoria environment)
+			--wait(self.typewriterSpeed)
 			output_string = output_string .. segment
+			if typeof(output_location) == "UILabel" then
+				output_location.Text = output_string
+			elseif typeof(output_location) == "string" then
+				output_location = output_string
+			elseif typeof(output_location) == "table" then
+				--warn("EPBBText: Output location is a table; are you passing a string by reference? Note there's better ways to do this.")
+				output_location.out = output_string
+			else
+				error("EPBBText: Output location variable is type of " .. typeof(output_location) .. " whic is unsupported!", 2)
+			end
 		end
 	end
 
