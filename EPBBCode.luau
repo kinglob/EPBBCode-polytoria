@@ -612,7 +612,7 @@ function EPBBText:Out(output_location: UILabel | string): string | nil
 	return
 end
 
-local function GetMetadataByColumn(metadata: Metadata, column: number): {} | nil
+local function GetMetadataByColumn(metadata: Metadata, column: number): {}
 	for _, data in pairs(metadata) do
 		if data[EPBBText.Enums.SegmentProperty.Column] == column then
 			return data
@@ -621,100 +621,109 @@ local function GetMetadataByColumn(metadata: Metadata, column: number): {} | nil
 	return
 end
 
+
+-- this is very sensitive to what the what the string table element is called
+-- same what the total_tag_length element is called
+-- luau, PLEASE give us a way to pass by reference without tables :sob:
+local function ParseSegment(segment: any, string: {string}, total_tag_length: {number}, column: number): nil
+	-- check if the segment is a table
+	if typeof(segment) == "table" then
+		-- check segment type
+		-- if offset character
+		if segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.Offset_Character then
+			local segment_character = segment[EPBBText.Enums.SegmentProperty.Text]
+			local segment_offset = segment[EPBBText.Enums.SegmentProperty.CloseTagLength]
+
+			local string_first_half = string.Value:sub(1, #string.Value - segment_offset)
+			-- +1 to avoid trailing characters from the tag
+			local string_second_half = string.Value:sub(#string.Value - segment_offset + 1, -1)
+
+			-- wait set typewriter speed before setting new output string (doesn't work on non-polytoria environment)
+			--wait(self.typewriterSpeed)
+			string.Value = string_first_half .. segment_character .. string_second_half
+
+			return
+
+		-- if epbbcode tag (metadata)
+		elseif segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.EPBBCode_Metadata then
+			print("this is type metadata")
+			-- get wrapped text, read and output it in the same way typewriterout does it cause it's basically the same principle
+
+		-- if neither (how)
+		else
+			error("EPBBCode: failed to get type of segment! Type is: " .. tostring(typeof(segment)), 2)
+		end
+
+	-- if the segment is a regular character / text
+	else
+		string.Value = string.Value .. segment
+	end
+end
+
 --[[
 returns a string being the output string going to the output location
+
 sets output_location.Text to be string + the current segment
 --]]
-function EPBBText:TypewriterOut(output_location: UILabel | string | {string}): string | nil
-	isOutputting_Value = true
-
+function EPBBText:TypewriterOut(output_location: UILabel | string | {string} | StringValue, onUpdate: ((string) -> nil)?): string
 	if not self.isTypewriter then
 		error("EPBBCode: self.isTypewriter set to false, did you mean to call Out() instead? Ending output.", 2)
 	end
 
-	local output_string = ""
+	isOutputting_Value = true
+	local output_string = { Value = "" }
+	local total_tag_length = { Value = 0 }
 
-	for column, segment in pairs(ParsedText_Value) do
-		if not self.isTypewriter then
-			error(
-				"EPBBCode: self.isTypewriter set to false while outputting segments, ending output (why would you do that)",
-				2
-			)
-		end
-
-		-- check if the segment is a table
-		if typeof(segment) == "table" then
-			-- check segment type
-			-- if offset character
-			if segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.Offset_Character then
-				local segment_character = segment[EPBBText.Enums.SegmentProperty.Text]
-				local segment_offset = segment[EPBBText.Enums.SegmentProperty.CloseTagLength]
-
-				local string_first_half = output_string:sub(1, #output_string - segment_offset)
-				-- +1 to avoid trailing characters from the tag
-				local string_second_half = output_string:sub(#output_string - segment_offset + 1, -1)
-
-				-- wait set typewriter speed before setting new output string (doesn't work on non-polytoria environment)
-				--wait(self.typewriterSpeed)
-				output_string = string_first_half .. segment_character .. string_second_half
-				if typeof(output_location) == "UILabel" then
-					output_location.Text = output_string
-				elseif typeof(output_location) == "string" then
-					output_location = output_string
-				elseif typeof(output_location) == "table" then
-					--warn("EPBBText: Output location is a table; are you passing a string by reference? Note there's better ways to do this.")
-					output_location.out = output_string
-				else
-					error("EPBBText: Output location variable is type of " .. typeof(output_location) .. " whic is unsupported!", 2)
-				end
-
-				print(output_string)
-				continue
-
-			-- if epbbcode tag (metadata)
-			elseif
-				segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.EPBBCode_Metadata
-			then
-				-- get wrapped text, read and output it in the same way typewriterout does it cause it's basically the same principle
-				continue
-			-- if neither (how)
-			else
-				error(
-					"EPBBCode: segment "
-						.. tostring(column)
-						.. " in parsed text during TypewriterOut to "
-						.. output_location.Name
-						.. " was found to be a table but was empty",
-					2
-				)
+	local thread = coroutine.create(function()
+		for column, segment in pairs(ParsedText_Value) do
+			if not self.isTypewriter then
+				error("EPBBCode: self.isTypewriter set to false while outputting segments, ending output (why would you do that)", 2)
 			end
 
-		-- if the segment is a regular character / text
-		else
+			-- this literally does everything
+			ParseSegment(segment, output_string, total_tag_length, column)
+
 			-- wait set typewriter speed before setting new output string (doesn't work on non-polytoria environment)
 			-- check if segment is > 1 (if true, it's a bbcode tag)
-			if not (#segment > 1) then
-				--wait(self.typewriterSpeed)
+			if typeof(segment) ~= "table" then
+				if not (#segment > 1) then
+					--wait(self.typewriterSpeed)
+				else
+					total_tag_length.Value += #segment
+				end
 			end
 
-			output_string = output_string .. segment
+			-- decide where to output (typesafe wowowow)
 			if typeof(output_location) == "UILabel" then
-				output_location.Text = output_string
+				output_location.Text = output_string.Value
 			elseif typeof(output_location) == "string" then
-				output_location = output_string
+				output_location = output_string.Value
 			elseif typeof(output_location) == "table" then
 				--warn("EPBBText: Output location is a table; are you passing a string by reference? Note there's better ways to do this.")
-				output_location.out = output_string
+				output_location.Value = output_string.Value
 			else
-				error("EPBBText: Output location variable is type of " .. typeof(output_location) .. " whic is unsupported!", 2)
+				error("EPBBCode: Output location variable is type of " .. typeof(output_location) .. " whic is unsupported!", 2)
+			end
+			
+			coroutine.yield()
+		end
+	end)
+
+	while coroutine.status(thread) ~= "dead" do
+		if not self.isPaused then
+			local success, err = coroutine.resume(thread)
+			if not success then
+				error("EPBBCode: Failed to resume typewriter output thread! Err: " .. tostring(err), 2)
 			end
 
-			print(output_string)
+			if onUpdate then
+				onUpdate(output_string.Value)
+			end
 		end
 	end
 
 	self.isOutputting = false
-	return output_string
+	return output_string.Value
 end
 
 --[[
