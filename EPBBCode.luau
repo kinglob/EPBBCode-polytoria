@@ -588,9 +588,6 @@ function EPBBText:Set(Property: number, Value: any): EPBBTextProperties
 		[EPBBText.Enums.Property.Length] = function(Value)
 			warn("EPBBCode: Length cannot be modified directly.")
 		end,
-		[EPBBText.Enums.Property.Images] = function(Value)
-			warn("EPBBCode: Images cannot be modified directly.")
-		end,
 		[EPBBText.Enums.Property.isOutputting] = function(Value)
 			warn("EPBBCode: isOutputting cannot be modified directly.")
 		end,
@@ -671,6 +668,7 @@ function EPBBText:TypewriterOut(output_location: UILabel | string | {string}): s
 					error("EPBBText: Output location variable is type of " .. typeof(output_location) .. " whic is unsupported!", 2)
 				end
 
+				print(output_string)
 				continue
 
 			-- if epbbcode tag (metadata)
@@ -694,7 +692,11 @@ function EPBBText:TypewriterOut(output_location: UILabel | string | {string}): s
 		-- if the segment is a regular character / text
 		else
 			-- wait set typewriter speed before setting new output string (doesn't work on non-polytoria environment)
-			--wait(self.typewriterSpeed)
+			-- check if segment is > 1 (if true, it's a bbcode tag)
+			if not (#segment > 1) then
+				--wait(self.typewriterSpeed)
+			end
+
 			output_string = output_string .. segment
 			if typeof(output_location) == "UILabel" then
 				output_location.Text = output_string
@@ -706,6 +708,8 @@ function EPBBText:TypewriterOut(output_location: UILabel | string | {string}): s
 			else
 				error("EPBBText: Output location variable is type of " .. typeof(output_location) .. " whic is unsupported!", 2)
 			end
+
+			print(output_string)
 		end
 	end
 
