@@ -175,6 +175,8 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 		[EPBBText.Enums.SegmentProperty.SegmentType] = EPBBText.Enums.SegmentTypes.EPBBCode_Metadata,
 	}
 
+	local wrapped_text_data = data[EPBBText.Enums.SegmentProperty.WrappedText]
+
 	local tag_start = 1
 	local valueDeclaration = Tag:find("=", tag_start)
 
@@ -243,7 +245,43 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 
 			-- +1 to avoid the > on the open tag end, -1 to avoid the < on the close tag start
 			local wrapped_text = Tag:sub(open_tag_end + 1, close_tag_start - 1)
-			data[EPBBText.Enums.SegmentProperty.WrappedText] = wrapped_text
+            -- check for bbcode / epbbcode tags inside of the wrapped text
+            local open_bbcode_tag_start = wrapped_text:find("[", 1, true)
+			if open_bbcode_tag_start == nil then
+				wrapped_text_data[#wrapped_text_data + 1] = wrapped_text
+			else
+				local open_bbcode_tag_end = wrapped_text:find("]", open_bbcode_tag_start, true)
+				if open_bbcode_tag_end == nil then
+					error("EPBBCode: Couldn't find end of an opening BBCode tag wrapped inside of an EPBBCode tag!", 2)
+				end
+				local open_bbcode_tag = wrapped_text:sub(open_bbcode_tag_start. open_bbcode_tag_end)
+				wrapped_text_data[#wrapped_text_data + 1] = open_bbcode_tag
+				
+				local close_bbcode_tag_start = wrapped_text:find("[/", open_bbcode_tag_end, true)
+				if close_bbcode_tag_start == nil then
+					warn("EPBBCode: Couldn't find closing BBCode tag wrapped inside of an EPBBCode tag!", 2)
+				else
+					local close_bbcode_tag_end = wrapped_text:find("]", close_bbcode_tag_start, true)
+					if close_bbcode_tag_end == nil then
+						error("EPBBCode: Couldn't find end of an opening BBCode tag wrapped inside of a EPBBCode tag!", 2)
+					end
+					-- short by one character, so add a +1
+					local close_bbcode_tag_length = close_bbcode_tag_end - close_bbcode_tag_start + 1
+					local close_bbcode_tag = wrapped_text:sub(close_bbcode_tag_start, close_bbcode_tag_end)
+
+					wrapped_text_data[#wrapped_text_data + 1] = close_bbcode_tag
+
+					-- get characters wrapped in the bbcode data
+					local text_in_bbcode_tags = wrapped_text:sub(open_bbcode_tag_end, close_bbcode_tag_start)
+					while i <= #text_in_bbcode_tags do
+						wrapped_text_data[#wrapped_text_data + 1] = {
+							[EPBBText.Enums.SegmentProperty.Text] = text_buffer[text_index],
+							[EPBBText.Enums.SegmentProperty.CloseTagLength] = close_tag_length,
+							[EPBBText.Enums.SegmentProperty.SegmentType] = EPBBText.Enums.SegmentTypes.Offset_Character,
+						}
+					end
+				end
+			end
 
 		-- if img or img
 		else
@@ -586,7 +624,6 @@ end
 returns a string being the output string going to the output location
 sets output_location.Text to be string + the current segment
 --]]
---
 function EPBBText:TypewriterOut(output_location: UILabel | string): string | nil
 	isOutputting_Value = true
 	local is_output_nil = false
@@ -606,7 +643,6 @@ function EPBBText:TypewriterOut(output_location: UILabel | string): string | nil
 
 		-- check if the segment is a table
 		if typeof(segment) == "table" then
-			print("segment is table:")
 			-- check segment type
 			-- if offset character
 			if segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.Offset_Character then
@@ -640,8 +676,7 @@ function EPBBText:TypewriterOut(output_location: UILabel | string): string | nil
 			elseif
 				segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.EPBBCode_Metadata
 			then
-				print("is metadata tag")
-				-- lol idk
+				-- get wrapped text, read and output it in the same way typewriterout does it cause it's basically the same principle
 				continue
 			-- if neither (how)
 			else
