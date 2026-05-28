@@ -1,7 +1,7 @@
 --!nocheck
 local EPBBCode = require("./EPBBCode")
 
-print("debug test suite!")
+print("edgecase test suite!")
 
 -- issue with this edgecase
 -- the regular color bbcode tag is processed as regular text (NOT GOOD) when put inside of a EPBBCode tag (the function one)

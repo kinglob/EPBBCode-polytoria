@@ -47,5 +47,12 @@ A wiki is in the works.
 
 Note that this is my first open-source polytoria project, and that Luau is not my area of expertise, so if you find any performance issues or any bugs that I can fix, please open an issue on the issue tracker.
 
+## How do I use EPBBCode
+
+Installation is as simple as copying and pasting the EPBBCode.luau contents into your own module file.
+
+Using it on the otherhand, is slightly more complicated due to bindings & tag structure.
+See the wiki's Getting Started page for more information.
+
 ---
 *Artificial Intelligence / LLM (Large Language Model) generated content was not used in the making of this project.*

@@ -1,0 +1,84 @@
+local EPBBCode = require("EPBBCode")
+
+print("stress test suite!")
+
+local stress_test_string_1 = 
+"thisisthestartofalongstringwithlotsoftags"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+.. "bbcoode is [color=red]red[/color]"
+.. "bbocde is [b]bold[/bold]"
+.. "bbcode is [b][color=red]red and bold[/color][/b]"
+.. "epbbcode is <[func='function', args={foo=bar}]>function</[func]>"
+local EPBBText = EPBBCode.New(stress_test_string_1, true)
+EPBBText:Set(EPBBText.Enums.Property.typewriterSpeed, 0.1)
+
+print("------------------using typewriterout method--------")
+
+local string_value: string = ""
+local result = EPBBText:TypewriterOut(string_value, function(string_value)
+	print(string_value)
+end)
+
+print("----------------reference result------------")
+print(result.Value, "LENGTH: " .. tostring(#result.Value))
+
+print("----------------the rebuilt string---------------")
+print(string_value, "LENGTH: " .. tostring(#string_value))
+
+print("------------------------metadata-----------------------")
+for data_type, data in pairs(EPBBText:Get(EPBBCode.Enums.Property.Metadata)) do
+	print("---------" .. tostring(data_type) .. "-----------")
+	for column, piece in pairs(data) do
+		print("-------" .. column .. "---------")
+		for _, info in pairs(piece) do
+			print(_, info)
+		end
+	end
+end

@@ -720,7 +720,7 @@ function EPBBText:TypewriterOut(output_location: UILabel | string | {string} | S
 				onUpdate(output_string.Value)
 			end
 		else
-			wait(0.25)
+			--wait(0.1)
 		end
 	end
 

@@ -1,6 +1,7 @@
 set windows-shell := ["powershell", "-Command"]
 
-run-win:
+[arg("-w", long="-win", value=true)]
+run -w:
   ./windows-luau/luau.exe --profile ./EPBBCodeTest.luau
 
 run-linux:
