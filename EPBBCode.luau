@@ -64,6 +64,12 @@ export type EPBBTextProperties = {
 	-- immutable while outputting
 	isTypewriter: boolean,
 
+	-- read only
+	_ParsedText: ParsedText,
+	_EPBBTextMetadata: MetadataMap,
+	_Length: number,
+	_isOutputting: boolean,
+
 	-- modified through methods only
 	EPBBTextBoundFunctions: BoundFunctions,
 	EPBBTextBoundImages: BoundImages,
@@ -137,14 +143,8 @@ local EPBBText = {
 }
 EPBBText.__index = EPBBText
 
--- private
+-- private functions
 
--- private values that aren't allowed to be accessed
-
-local ParsedText_Value: ParsedText
-local EPBBTextMetadata_Value: MetadataMap
-local Length_Value: number
-local isOutputting_Value: boolean
 --[[
 Example EPBBCode tag:
 <[func='PlayACutscene', args={CutsceneName=First_cutscene, Local=true, Duration=10}]>!</[func]>
@@ -545,10 +545,10 @@ function EPBBText:Get(Property: number): any
 		[EPBBText.Enums.Property.isTypewriter] = self.isTypewriter,
 		[EPBBText.Enums.Property.isPaused] = self.isPaused,
 		[EPBBText.Enums.Property.typewriterSpeed] = self.typewriterSpeed,
-		[EPBBText.Enums.Property.ParsedText] = function() return ParsedText_Value end,
-		[EPBBText.Enums.Property.Length] = function() return Length_Value end,
-		[EPBBText.Enums.Property.isOutputting] = function() return isOutputting_Value end,
-		[EPBBText.Enums.Property.Metadata] = function() return EPBBTextMetadata_Value end
+		[EPBBText.Enums.Property.ParsedText] = function() return self._ParsedText end,
+		[EPBBText.Enums.Property.Length] = function() return self._Length end,
+		[EPBBText.Enums.Property.isOutputting] = function() return self._isOutputting end,
+		[EPBBText.Enums.Property.Metadata] = function() return self._EPBBTextMetadata end
 	}
 
     -- checks if value is returned via a function
@@ -670,12 +670,12 @@ function EPBBText:TypewriterOut(output_location: UILabel | string | {string} | S
 		error("EPBBCode: self.isTypewriter set to false, did you mean to call Out() instead? Ending output.", 2)
 	end
 
-	isOutputting_Value = true
+	self._isOutputting = true
 	local output_string = { Value = "" }
 	local total_tag_length = { Value = 0 }
 
 	local thread = coroutine.create(function()
-		for column, segment in ipairs(ParsedText_Value) do
+		for column, segment in ipairs(self._ParsedText) do
 			if not self.isTypewriter then
 				error("EPBBCode: self.isTypewriter set to false while outputting segments, ending output (why would you do that)", 2)
 			end
@@ -777,12 +777,12 @@ function EPBBText.New(RawText: string, isTypewriter: boolean): EPBBTextPropertie
 
 	if isTypewriter then
 		local ParsedText, Metadata = ParseTypewriterText(RawText)
-		ParsedText_Value = ParsedText
-		EPBBTextMetadata_Value = Metadata
+		self._ParsedText = ParsedText
+		self._EPBBTextMetadata = Metadata
 	else
 		local ParsedText, Metadata = ParseRegularText(RawText)
-		ParsedText_Value = ParsedText
-		EPBBTextMetadata_Value = Metadata
+		self._ParsedText = ParsedText
+		self._EPBBTextMetadata = Metadata
 	end
 
 	return self

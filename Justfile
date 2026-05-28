@@ -1,20 +1,28 @@
 set windows-shell := ["powershell", "-Command"]
 
-[arg("-w", long="-win", value=true)]
-run -w:
-  ./windows-luau/luau.exe --profile ./EPBBCodeTest.luau
+run-win:
+  ./windows-luau/luau.exe --profile ./EPBBCodeEdgecases.luau
+
+run-win-profiler:
+  ./windows-luau/luau.exe --profile ./EPBBCodeProfiler.luau
 
 run-linux:
-  ./linux-luau/luau --profile ./EPBBCodeTest.luau
+  ./linux-luau/luau --profile ./EPBBCodeEdgecases.luau
+
+run-linux-profiler:
+  ./linux-luau/luau.exe --profile ./EPBBCodeProfiler.luau
 
 run-nix:
-  luau --profile ./EPBBCodeTest.luau
+  luau --profile ./EPBBCodeEdgecases.luau
 
-# i'll add linux format commands later i swear
+run-nix-profiler:
+  luau --profile ./EPBBCodeProfiler.luau
+
 format-nix:
-  stylua EPBBCodeTest.luau
+  stylua EPBBCodeEdgecases.luau
   stylua EPBBCode.luau
 
 format-win:
   ./windows-luau/stylua EPBBCode.luau
-  ./windows-luau/stylua EPBBCodeTest.luau
+  /.windows-luau/stylua EPBBCodeProfiler.luau
+  ./windows-luau/stylua EPBBCodeEdgecases.luau

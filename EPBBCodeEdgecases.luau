@@ -37,3 +37,5 @@ for data_type, data in pairs(EPBBText:Get(EPBBCode.Enums.Property.Metadata)) do
 		end
 	end
 end
+
+print("---------")

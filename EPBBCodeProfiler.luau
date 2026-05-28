@@ -1,4 +1,4 @@
-local EPBBCode = require("EPBBCode")
+local EPBBCode = require("./EPBBCode")
 
 print("stress test suite!")
 
@@ -61,13 +61,14 @@ EPBBText:Set(EPBBText.Enums.Property.typewriterSpeed, 0.1)
 
 print("------------------using typewriterout method--------")
 
-local string_value: string = ""
+-- really weird thing with strings is that they don't work with larger values
+-- this is fixed if you pass it by reference
+-- probably has something to do with the luau compiler not wanting to copy large values
+local string_value = ""
 local result = EPBBText:TypewriterOut(string_value, function(string_value)
 	print(string_value)
+    print("-----")
 end)
-
-print("----------------reference result------------")
-print(result.Value, "LENGTH: " .. tostring(#result.Value))
 
 print("----------------the rebuilt string---------------")
 print(string_value, "LENGTH: " .. tostring(#string_value))
