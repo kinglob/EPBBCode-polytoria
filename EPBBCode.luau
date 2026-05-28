@@ -2,7 +2,7 @@
 
 -- function related types
 type BoundFunction = {
-	FunctionRef: PTCallback | PTFunction | (),
+	FunctionRef: PTCallback | PTFunction | () -> nil,
 	UnbindWhenCalled: boolean
 }
 
@@ -52,8 +52,8 @@ type BoundAnimations = { [string]: BoundAnimation }
 -- gradient related types
 type BoundGradient = {
 	GradientType: number, -- see EPBBCode.Enums.GradientTypes
-	GradientData: GradientImageAsset | ColorSeries
-	UnbindWhenCalled: boolean,
+	GradientData: GradientImageAsset | ColorSeries,
+	UnbindWhenCalled: boolean
 }
 type BoundGradients = { [string]: BoundGradient }
 
@@ -113,41 +113,41 @@ export type EPBBTextProperties = {
 	-- add binds
 	Bind_Function: (
 		self: EPBBTextProperties, 
-		BoundName: string,
-		BoundFunction?: BoundFunction,
-		FunctionRef?: PTCallback | PTFunction | (),
-		UnbindWhenCalled?: boolean,
+		BoundName: string, 
+		BoundFunction: BoundFunction?, 
+		FunctionRef: PTCallback? | PTFunction? | () -> nil?, 
+		UnbindWhenCalled: boolean?
 	) -> nil,
 	Bind_Image: (
 		self: EPBBTextProperties, 
 		BoundName: string,
-		BoundImage?: BoundImage,
-		ImageID?: number, 
-		isCached?: boolean,
-		UnbindWhenCalled?: boolean
+		BoundImage: BoundImage?,
+		ImageID: number?, 
+		isCached: boolean?,
+		UnbindWhenCalled: boolean?
 	) -> nil,
 	Bind_ImageSequence: (
 		self: EPBBTextProperties,
 		BoundName: string,
-		BoundImageSequence?: BoundImageSequence
-		Images?: {number}
-		isLooping?: boolean,
-		isCached?: boolean,
-		UnbindWhenCalled?: boolean,
+		BoundImageSequence: BoundImageSequence?,
+		Images: {number}?,
+		isLooping: boolean?,
+		isCached: boolean?,
+		UnbindWhenCalled: boolean?
 	) -> nil,
 	Bind_Event: (
 		self: EPBBTextProperties,
 		BoundName: string,
-		BoundEvent?: BoundEvent,
-		EventRef?: PTSignal | BindableEvent,
-		UnbindWhenCalled?: boolean,
+		BoundEvent: BoundEvent?,
+		EventRef: PTSignal? | BindableEvent?,
+		UnbindWhenCalled: boolean?
 	) -> nil,
 	Bind_NetworkEvent: (
 		self: EPBBTextProperties,
 		BoundName: string,
-		BoundNetworkEvent?: BoundNetworkEvent,
-		NetworkEventRef?: PTSignal | NetworkEvent,
-		UnbindWhenCalled?: boolean,
+		BoundNetworkEvent: BoundNetworkEvent?,
+		NetworkEventRef: PTSignal | NetworkEvent?,
+		UnbindWhenCalled: boolean?
 	) -> nil,
 
 	-- add unbinds
@@ -344,7 +344,7 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 					-- get characters wrapped in the bbcode tags
 					-- +1 to avoid the ], -1 to avoid the [
 					local text_in_bbcode_tags = wrapped_text:sub(open_bbcode_tag_end + 1, close_bbcode_tag_start - 1)
-					local i = 1					local i = 1
+					local i = 1
 
 					while i <= #text_in_bbcode_tags do
 						wrapped_text_data[#wrapped_text_data + 1] = {
@@ -813,7 +813,7 @@ function EPBBText:Bind(EPBBType: number, BoundName: string, Value: Bindable, unb
 
     if EPBBType == EPBBText.Enums.EPBBTypes.Function then
         local EPBBFunction = Value
-        if typeof(EPBBFunction) ~= "PTCallback" and typeof(EPBBFunction) ~= "PTFunction" then
+        if (not (typeof(EPBBFunction) == "PTCallback") and not (typeof(EPBBFunction) == "PTFunction")) or not (typeof(EPBBFunction) == "function") then
             error("EPBBCode: Tried to bind type Function to EPBBText but Value was not of type PTCallback or PTFunction")
         end
 
