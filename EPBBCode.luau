@@ -1,37 +1,61 @@
 --!nocheck
 
 -- function related types
-type BoundFunctions = { [string]: {PTCallback | PTFunction | boolean} }
+type BoundFunction = {
+	FunctionRef: PTCallback | PTFunction | (),
+	UnbindWhenCalled: boolean
+}
+
+type BoundFunctions = { [string]: BoundFunction }
 
 -- image related types
 type BoundImage = {
 	isCached: boolean,
+	UnbindWhenCalled: boolean,
 	ImageID: number,
 }
 
-type BoundImages = { [string]: {BoundImage | boolean} }
+type BoundImages = { [string]: BoundImage }
 
 -- image sequence related types
-type ImageSequence = {
+type BoundImageSequence = {
 	Images: { number },
+	UnbindWhenCalled: boolean,
 	isLooping: boolean,
 	isCached: boolean,
 }
 
-type BoundImageSequences = { [string]: {ImageSequence | boolean} }
+type BoundImageSequences = { [string]: ImageSequence }
 
 -- event related types
 -- bindable / client
-type BoundEvents = { [string]: {PTSignal | BindableEvent | boolean} }
+type BoundEvent = {
+	EventRef: PTSignal | BindableEvent | PTSignalConnection,
+	UnbindWhenCalled: boolean,
+}
+type BoundEvents = { [string]: BoundEvent }
 
 -- server / network
-type BoundNetworkEvents = { [string]: {NetworkEvent | PTSignal | boolean} }
+type BoundNetworkEvent = {
+	NetworkEventRef: PTSignal | NetworkEvent | PTSignalConnection,
+	UnbindWhenCalled: boolean
+}
+type BoundNetworkEvents = { [string]: BoundNetworkEvents }
 
 -- animation related types
-type BoundAnimations = { [string]: {TweenObject | boolean} }
+type BoundAnimation = {
+	AnimationRef: TweenObject,
+	UnbindWhenCalled: boolean
+}
+type BoundAnimations = { [string]: BoundAnimation }
 
 -- gradient related types
-type BoundGradients = { [string]: {GradientImageAsset | boolean} }
+type BoundGradient = {
+	GradientType: number, -- see EPBBCode.Enums.GradientTypes
+	GradientData: GradientImageAsset | ColorSeries
+	UnbindWhenCalled: boolean,
+}
+type BoundGradients = { [string]: BoundGradient }
 
 -- parsed text related types
 type ParsedToken = string | { string | number }
@@ -85,9 +109,49 @@ export type EPBBTextProperties = {
 	Set: (self: EPBBTextProperties) -> nil,
 	Out: (self: EPBBTextProperties) -> nil,
 	TypewriterOut: (self: EPBBTextProperties) -> nil,
-	Bind: (self: EPBBTextProperties, value: Bindable) -> nil,
-	Unbind: (self: EPBBTextProperties, value: Bindable) -> nil,
-	Test: (self: EPBBTextProperties) -> nil,
+	
+	-- add binds
+	Bind_Function: (
+		self: EPBBTextProperties, 
+		BoundName: string,
+		BoundFunction?: BoundFunction,
+		FunctionRef?: PTCallback | PTFunction | (),
+		UnbindWhenCalled?: boolean,
+	) -> nil,
+	Bind_Image: (
+		self: EPBBTextProperties, 
+		BoundName: string,
+		BoundImage?: BoundImage,
+		ImageID?: number, 
+		isCached?: boolean,
+		UnbindWhenCalled?: boolean
+	) -> nil,
+	Bind_ImageSequence: (
+		self: EPBBTextProperties,
+		BoundName: string,
+		BoundImageSequence?: BoundImageSequence
+		Images?: {number}
+		isLooping?: boolean,
+		isCached?: boolean,
+		UnbindWhenCalled?: boolean,
+	) -> nil,
+	Bind_Event: (
+		self: EPBBTextProperties,
+		BoundName: string,
+		BoundEvent?: BoundEvent,
+		EventRef?: PTSignal | BindableEvent,
+		UnbindWhenCalled?: boolean,
+	) -> nil,
+	Bind_NetworkEvent: (
+		self: EPBBTextProperties,
+		BoundName: string,
+		BoundNetworkEvent?: BoundNetworkEvent,
+		NetworkEventRef?: PTSignal | NetworkEvent,
+		UnbindWhenCalled?: boolean,
+	) -> nil,
+
+	-- add unbinds
+	Unbind: (self: EPBBTextProperties, BoundName: string) -> nil,
 }
 
 local EPBBText = {
@@ -138,6 +202,12 @@ local EPBBText = {
 			Value = 9,
 			WrappedText = 10,
 			Text = 11,
+		},
+
+		GradientTypes = {
+			ColorSeriesType = 1,
+			HorizontalImgageType = 2,
+			VerticalImageType = 3,
 		},
 	},
 }
@@ -735,7 +805,7 @@ for the bound name(s) in the specified type(s) until it is found.
 If it cannot be found, it'll return end.
 
 Note that bound names with their types can be re-used along with their value, so if you need to, set "unbind_when_called"
-to true.
+to true
 ]]--
 function EPBBText:Bind(EPBBType: number, BoundName: string, Value: Bindable, unbind_when_called: boolean?)
 	-- default
