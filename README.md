@@ -12,7 +12,7 @@ EPBBCode is written purely in Luau, follows an OOP paradigm for ease of use, and
 
 EPBBCode is primarily designed for making unique dialogue boxes from NPCs, *(which is the main purpose as to why I started this project)*, but also can be used to display text in a way that you originally wouldn't be able to.
 
-Custom EPBBCode tags use <> instead of [] in order to differentiate while parsing.
+Custom EPBBCode tags use <[]> instead of [] in order to differentiate while parsing.
 
 Some things that EPBBCode can do, which regular BBCode cannot:
 - Display images from Polytoria's Community Creations.
