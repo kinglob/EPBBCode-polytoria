@@ -21,9 +21,6 @@ local result = EPBBText:TypewriterOut(string_value, function(string_value)
 	print(string_value)
 end)
 
-print("----------------reference result------------")
-print(result.Value, "LENGTH: " .. tostring(#result.Value))
-
 print("----------------the rebuilt string---------------")
 print(string_value, "LENGTH: " .. tostring(#string_value))
 

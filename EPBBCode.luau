@@ -62,8 +62,8 @@ type ParsedToken = string | { string | number }
 type ParsedText = { ParsedToken }
 
 -- metadata related types
-type Metadata = { [string]: any }
-type MetadataMap = { [string]: {[number]: table} }
+type Metadata = { [number]: any }
+type MetadataMap = { [string]: {[number]: Metadata} }
 
 -- bindable types
 type Bindable =
@@ -94,16 +94,6 @@ export type EPBBTextProperties = {
 	_Length: number,
 	_isOutputting: boolean,
 
-	-- modified through methods only
-	EPBBTextBoundFunctions: BoundFunctions,
-	EPBBTextBoundImages: BoundImages,
-	EPBBTextBoundImageSequences: BoundImageSequences,
-	EPBBTextBoundEvents: BoundEvents,
-	EPBBTextBoundNetworkEvents: BoundNetworkEvents,
-	EPBBTextBoundAnimations: BoundAnimations,
-	EPBBTextBoundGradients: BoundGradients,
-	EPBBTextBoundLabel: UILabel,
-
 	-- methods
 	Get: (self: EPBBTextProperties) -> any,
 	Set: (self: EPBBTextProperties) -> nil,
@@ -112,7 +102,7 @@ export type EPBBTextProperties = {
 	
 	-- add binds
 	Bind_Function: (
-		self: EPBBTextProperties, 
+		self: EPBBTextProperties,
 		BoundName: string, 
 		BoundFunction: BoundFunction?, 
 		FunctionRef: PTCallback? | PTFunction? | () -> nil?, 
@@ -187,7 +177,7 @@ local EPBBText = {
 		SegmentTypes = {
 			EPBBCode_Metadata = 1,
 			Offset_Character = 2,
-			-- Characters / text that is appended immediately does not have a enum.
+			-- Characters / text that is appended immediately do not have a enum.
 		},
 
 		SegmentProperty = {
@@ -576,12 +566,7 @@ end
 local function ParseRegularText(RawText: string)
 end
 
---[[
-Gets called everytime ParsedText RawText, isTypewriter and isPaused is changed.
-Recompiles all properties (except for methods) when called.
-"args" expects EPBBText enums for what property got changed.
-]]
---
+-- this is probably redundant except for when setting a new rawtext
 local function Update(args: {}): nil
 	-- lookup table for avoiding if-else chains
 	local ExecTable = {
@@ -608,6 +593,7 @@ end
 -- public
 
 -- gets a property
+-- also make this a metamethod with the dot operator
 function EPBBText:Get(Property: number): any
 	-- lookup table for avoiding if-else chains
 	local LookupTable = {
@@ -633,6 +619,8 @@ function EPBBText:Get(Property: number): any
     end
 end
 
+-- use metamethods to have this be the dot operator for this class
+-- im not that smart so i'll probably do it after getting metadata working
 function EPBBText:Set(Property: number, Value: any): EPBBTextProperties
 	-- lookup table for avoiding if-else chains
 	local ExecTable = {
@@ -682,20 +670,44 @@ function EPBBText:Out(output_location: UILabel | string): string | nil
 	return
 end
 
-local function GetMetadataByColumn(metadata: Metadata, column: number): {}
-	for _, data in pairs(metadata) do
-		if data[EPBBText.Enums.SegmentProperty.Column] == column then
-			return data
+local function GetMetadataByColumn(column: number, MetadataMapInfo: MetadataMap)
+	for _, BindType in pairs(MetadataMapInfo) do
+		for MetadataColumn, Metadata in pairs(BindType) do
+			if column ~= MetadataColumn then
+				continue
+			end
+			return Metadata
 		end
 	end
-	return
+	
+	return nil
 end
 
+type OutputLocation = UILabel | string | {string} | StringValue
+local function ParseMetadata(Metadata: Metadata, EPBBData: EPBBTextProperties, output_location: OutputLocation)
+	local MetadataType = Metadata[EPBBText.Enums.SegmentProperty.Type]
+	
+	if MetadataType == EPBBText.Enums.EPBBTypes.Function then
+	
+	elseif MetadataType == EPBBText.Enums.EPBBTypes.Image then
+
+	elseif MetadataType == EPBBText.Enums.EPBBTypes.Animation then
+
+	elseif MetadataType == EPBBText.Enums.EPBBTypes.Image_Sequence then
+
+	elseif MetadataType == EPBBText.Enums.EPBBTypes.Gradient then
+
+	elseif MetadataType == EPBBText.Enums.EPBBTypes.BindableEvent then
+	
+	elseif MetadataType == EPBBText.Enums.EPBBTypes.NetworkEvent then
+
+	end
+end
 
 -- this is very sensitive to what the what the string table element is called
--- same what the total_tag_length element is called
 -- luau, PLEASE give us a way to pass by reference without tables :sob:
-local function ParseSegment(segment: any, string: {string}, total_tag_length: {number}, column: number): nil
+local function ParseSegment(segment: any, string: {string}): nil
+
 	-- check if the segment is a table
 	if typeof(segment) == "table" then
 		-- check segment type
@@ -713,13 +725,8 @@ local function ParseSegment(segment: any, string: {string}, total_tag_length: {n
 			string.Value = string_first_half .. segment_character .. string_second_half
 
 			return
-
-		-- if epbbcode tag (metadata)
-		elseif segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.EPBBCode_Metadata then
-			print("this is type metadata")
-			-- get wrapped text, read and output it in the same way typewriterout does it cause it's basically the same principle
-
-		-- if neither (how)
+		
+		-- if not (how)
 		else
 			error("EPBBCode: failed to get type of segment! Type is: " .. tostring(typeof(segment)), 2)
 		end
@@ -735,7 +742,7 @@ returns a string being the output string going to the output location
 
 sets output_location.Text to be string + the current segment
 --]]
-function EPBBText:TypewriterOut(output_location: UILabel | string | {string} | StringValue, onUpdate: ((string) -> nil)?): string
+function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((string) -> nil)?): string
 	if not self.isTypewriter then
 		error("EPBBCode: self.isTypewriter set to false, did you mean to call Out() instead? Ending output.", 2)
 	end
@@ -749,9 +756,16 @@ function EPBBText:TypewriterOut(output_location: UILabel | string | {string} | S
 			if not self.isTypewriter then
 				error("EPBBCode: self.isTypewriter set to false while outputting segments, ending output (why would you do that)", 2)
 			end
+			
+			-- handle metadata first
+			-- get metadata for that column, if there is any
+			if GetMetadataByColumn(column, self) ~= nil then
+				local MetadataBind = GetMetadataByColumn(column, self._EPBBTextMetadata)
+				ParseMetadata(MetadataBind, self, output_location)
+			end
 
 			-- this literally does everything
-			ParseSegment(segment, output_string, total_tag_length, column)
+			ParseSegment(segment, output_string)
 
 			-- wait set typewriter speed before setting new output string (doesn't work on non-polytoria environment)
 			-- check if segment is > 1 (if true, it's a bbcode tag)
@@ -768,7 +782,7 @@ function EPBBText:TypewriterOut(output_location: UILabel | string | {string} | S
 				output_location.Text = output_string.Value
 			elseif typeof(output_location) == "string" then
 				output_location = output_string.Value
-			elseif typeof(output_location) == "table" then
+			elseif (typeof(output_location) == "table") or (typeof(output_location) == "StringValue") then
 				--warn("EPBBText: Output location is a table; are you passing a string by reference? Note there's better ways to do this.")
 				output_location.Value = output_string.Value
 			else
