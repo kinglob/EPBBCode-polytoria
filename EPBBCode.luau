@@ -64,6 +64,7 @@ type ParsedText = { ParsedToken }
 -- metadata related types
 type Metadata = { [number]: any }
 type MetadataMap = { [string]: {[number]: Metadata} }
+type BoundMetadataMap = { [string]: {[string]: any} } 
 
 -- bindable types
 type Bindable =
@@ -91,6 +92,7 @@ export type EPBBTextProperties = {
 	-- read only
 	_ParsedText: ParsedText,
 	_EPBBTextMetadata: MetadataMap,
+	_EPBBTextBoundMetadata: BoundMetadataMap,
 	_Length: number,
 	_isOutputting: boolean,
 
@@ -137,6 +139,21 @@ export type EPBBTextProperties = {
 		BoundName: string,
 		BoundNetworkEvent: BoundNetworkEvent?,
 		NetworkEventRef: PTSignal | NetworkEvent?,
+		UnbindWhenCalled: boolean?
+	) -> nil,
+	Bind_Gradient: (
+		self: EPBBTextProperties,
+		BoundName: string,
+		BoundGradient: BoundGradient?,
+		GradientType: number?,
+		GradientData: GradientImageAsset? | ColorSeries?,
+		UnbindWhenCalled: boolean?
+	) -> nil,
+	Bind_Animation: (
+		self: EPBBTextProperties,
+		BoundName: string,
+		BoundAnimation: BoundAnimation?,
+		AnimationRef: TweenObject?,
 		UnbindWhenCalled: boolean?
 	) -> nil,
 
@@ -683,12 +700,52 @@ local function GetMetadataByColumn(column: number, MetadataMapInfo: MetadataMap)
 	return nil
 end
 
+local function GetBoundMetadataByName(BoundName: string, EPBBData: EPBBTextProperties)
+	local BoundMetadataMap = EPBBData._EPBBTextBoundMetadata
+
+	for BoundTypeName, BoundType in pairs(BoundMetadataMap) do
+		for Name, BoundMetadata in pairs(BoundType) do
+			if BoundName ~= Name then
+				continue
+			end
+
+			return BoundMetadata
+		end
+	end
+	return
+end
+
 type OutputLocation = UILabel | string | {string} | StringValue
-local function ParseMetadata(Metadata: Metadata, EPBBData: EPBBTextProperties, output_location: OutputLocation)
+local function ExecuteMetadata(Metadata: Metadata, EPBBData: EPBBTextProperties, output_location: OutputLocation)
 	local MetadataType = Metadata[EPBBText.Enums.SegmentProperty.Type]
-	
+
 	if MetadataType == EPBBText.Enums.EPBBTypes.Function then
+		local metadataname = Metadata[EPBBText.Enums.SegmentProperty.Value]
+		if metadataname == nil then
+			error("EPBBCode: Failed to get value of Metadata when trying to execute metadata!", 2)
+		end
+
+		local boundmetadata = GetBoundMetadataByName(metadataname, EPBBData)
+		if boundmetadata == nil then
+			error("EPBBCode: No binding found for '" .. metadataname .. "'. Did you call Bind_Function before TypewriterOut?", 2)
+		end
+
+		local FunctionRef = boundmetadata.FunctionRef
+
+	    if FunctionRef == nil then
+        error("EPBBCode: Bound entry for '" .. metadataname .. "' has no FunctionRef — was it built correctly in Bind_Function?", 2)
+    	end
+
+    	if typeof(FunctionRef) ~= "function" then
+    	    error("EPBBCode: FunctionRef for '" .. metadataname .. "' is not callable, got " .. typeof(FunctionRef), 2)
+    	end
+
+		FunctionRef()
 	
+	    if boundmetadata.UnbindWhenCalled then
+        	EPBBData._EPBBTextBoundMetadata[EPBBText.Enums.EPBBTypes.Function][metadataname] = nil
+    	end
+
 	elseif MetadataType == EPBBText.Enums.EPBBTypes.Image then
 
 	elseif MetadataType == EPBBText.Enums.EPBBTypes.Animation then
@@ -759,9 +816,9 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 			
 			-- handle metadata first
 			-- get metadata for that column, if there is any
-			if GetMetadataByColumn(column, self) ~= nil then
-				local MetadataBind = GetMetadataByColumn(column, self._EPBBTextMetadata)
-				ParseMetadata(MetadataBind, self, output_location)
+			if GetMetadataByColumn(column, self._EPBBTextMetadata) ~= nil then
+				local MetadataBind = GetMetadataByColumn(column, self._EPBBTextMetadata) 
+				ExecuteMetadata(MetadataBind, self, output_location)
 			end
 
 			-- this literally does everything
@@ -812,42 +869,27 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 	return output_string.Value
 end
 
---[[
-Bind a name to a specific function type.
-When a EPBBCode tag is found on a specific column, it will automatically search
-for the bound name(s) in the specified type(s) until it is found.
-If it cannot be found, it'll return end.
+function EPBBText:Bind_Function(BoundName: string, BoundFunction: BoundFunction?, FunctionRef: PTCallback? | PTFunction? | () -> nil?, UnbindWhenCalled: boolean?)
+	if self._EPBBTextBoundMetadata[EPBBText.Enums.EPBBTypes.Function] == nil then
+		self._EPBBTextBoundMetadata[EPBBText.Enums.EPBBTypes.Function] = {}
+	end
+	
+	local BoundFunctions = self._EPBBTextBoundMetadata[EPBBText.Enums.EPBBTypes.Function]
+	local BoundFunctionData = {}
 
-Note that bound names with their types can be re-used along with their value, so if you need to, set "unbind_when_called"
-to true
-]]--
-function EPBBText:Bind(EPBBType: number, BoundName: string, Value: Bindable, unbind_when_called: boolean?)
-	-- default
-	local unbind_when_called_val = unbind_when_called or false
-
-    if EPBBType == EPBBText.Enums.EPBBTypes.Function then
-        local EPBBFunction = Value
-        if (not (typeof(EPBBFunction) == "PTCallback") and not (typeof(EPBBFunction) == "PTFunction")) or not (typeof(EPBBFunction) == "function") then
-            error("EPBBCode: Tried to bind type Function to EPBBText but Value was not of type PTCallback or PTFunction")
+	if BoundFunction ~= nil then
+		BoundFunctionData = BoundFunction
+	else
+		if FunctionRef == nil then
+            error("EPBBCode: Bind_Function requires either a BoundFunction table or a FunctionRef, got neither.", 2)
         end
+        BoundFunctionData = {
+            FunctionRef = FunctionRef,
+            UnbindWhenCalled = UnbindWhenCalled or false,
+        }
+	end
 
-		-- get args from tag
-
-        self.EPBBTextBoundFunctions[BoundName] = {EPBBFunction, unbind_when_called_val}
-    
-    elseif EPBBType == EPBBText.Enums.EPBBTypes.Image then
-		-- get args from tag
-    elseif EPBBType == EPBBText.Enums.EPBBTypes.Image_Sequence then
-        -- get args from tag
-    elseif EPBBType == EPBBText.Enums.EPBBTypes.BindableEvent then
-		-- get args from tag
-	elseif EPBBType == EPBBText.Enums.EPBBTypes.NetworkEvent then
-		-- get args from tag
-	elseif EPBBType == EPBBText.Enums.EPBBTypes.Animation then
-		-- get args from tag
-	elseif EPBBType == EPBBText.Enums.EPBBTypes.Gradient then
-		-- I SAID GET ARGS FROM TAG!!
-    end
+	BoundFunctions[BoundName] = BoundFunctionData
 end
 
 function EPBBText:Unbind(EPBBType: number, BoundName: string)
@@ -858,6 +900,7 @@ function EPBBText.New(RawText: string, isTypewriter: boolean): EPBBTextPropertie
 	local self = setmetatable({}, EPBBText)
 	self.isTypewriter = isTypewriter
 	self.RawText = RawText
+	self._EPBBTextBoundMetadata = {}
 
 	if isTypewriter then
 		local ParsedText, Metadata = ParseTypewriterText(RawText)
