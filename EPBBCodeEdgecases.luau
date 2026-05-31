@@ -11,12 +11,6 @@ local EPBBText = EPBBCode.New(
 	true
 )
 EPBBText:Set(EPBBText.Enums.Property.typewriterSpeed, 1)
-
-function thisafunction()
-	print("THIS IS A FUNCTION")
-end
-EPBBText:Bind_Function("function", nil, thisafunction, false)
-
 print(EPBBText:Get(EPBBCode.Enums.Property.RawText), "printing RawText")
 print(EPBBText:Get(EPBBCode.Enums.Property.ParsedText), "printing ParsedText")
 
