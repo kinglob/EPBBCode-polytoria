@@ -776,9 +776,7 @@ local function ParseSegment(segment: any, string: {string}, EPBBData: EPBBTextPr
 			local string_first_half = string.Value:sub(1, #string.Value - segment_offset)
 			-- +1 to avoid trailing characters from the tag
 			local string_second_half = string.Value:sub(#string.Value - segment_offset + 1, -1)
-
-			-- wait set typewriter speed before setting new output string (doesn't work on non-polytoria environment)
-			--wait(EPBBData.typewriterSpeed)
+			
 			string.Value = string_first_half .. segment_character .. string_second_half
 
 			return
@@ -807,6 +805,7 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 	self._isOutputting = true
 	local output_string = { Value = "" }
 	local total_tag_length = { Value = 0 }
+	local should_wait = false
 
 	local thread = coroutine.create(function()
 		for column, segment in ipairs(self._ParsedText) do
@@ -824,13 +823,22 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 			-- this literally does everything
 			ParseSegment(segment, output_string, self)
 
-			-- wait set typewriter speed before setting new output string (doesn't work on non-polytoria environment)
 			-- check if segment is > 1 (if true, it's a bbcode tag)
 			if typeof(segment) ~= "table" then
 				if not (#segment > 1) then
-					--wait(self.typewriterSpeed)
+					should_wait = true
 				else
+					should_wait = false
 					total_tag_length.Value += #segment
+				end
+			else
+				-- check if the segment is a offset character
+				if segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.Offset_Character then
+					if not (#segment[EPBBText.Enums.SegmentProperty.Text] > 1) then
+						should_wait = true
+					end
+				else
+					should_wait = false
 				end
 			end
 
@@ -842,23 +850,30 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 			elseif (typeof(output_location) == "table") or (typeof(output_location) == "StringValue") then
 				output_location.Value = output_string.Value
 			else
-				error("EPBBCode: Output location variable is type of " .. typeof(output_location) .. " whic is unsupported!", 2)
+				error("EPBBCode: Output location variable is type of " .. typeof(output_location) .. " which is unsupported!", 2)
 			end
 			
-			coroutine.yield()
+			coroutine.yield(should_wait)
 		end
 	end)
 	
 	while coroutine.status(thread) ~= "dead" do
 		if not self.isPaused then
 			
-			local success, err = pcall(coroutine.resume, thread)
-			if not success then
-				error("EPBBCode: Unable to resume TypewriterOut thread. Err: " .. tostring(err), 2)
+			if coroutine.status(thread) == "suspended" then
+				local success, err = pcall(coroutine.resume, thread)
+				if not success then
+					error("EPBBCode: Unable to resume TypewriterOut thread. Err: " .. tostring(err), 2)
+				end
 			end
 
 			if onUpdate then
 				onUpdate(output_string.Value)
+			end
+			
+			-- wait here to avoid the yield
+			if should_wait then
+				--wait(self.typewriterSpeed)
 			end
 		else
 			--wait(0.1)
