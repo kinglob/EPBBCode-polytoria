@@ -13,7 +13,7 @@ type BoundImage = {
 	isCached: boolean,
 	Cache: UIImage?, -- optional depending on the isCached value
 	UnbindWhenCalled: boolean,
-	ImageID: number,
+	ImageAsset: PTImageAsset -- sighhh
 }
 
 type BoundImages = { [string]: BoundImage }
@@ -115,7 +115,7 @@ export type EPBBTextProperties = {
 		self: EPBBTextProperties, 
 		BoundName: string,
 		BoundImage: BoundImage?,
-		ImageID: number?, 
+		ImageAsset: PTImageAsset?,
 		isCached: boolean?,
 		UnbindWhenCalled: boolean?
 	) -> nil,
@@ -123,7 +123,7 @@ export type EPBBTextProperties = {
 		self: EPBBTextProperties,
 		BoundName: string,
 		BoundImageSequence: BoundImageSequence?,
-		Images: {number}?,
+		Images: {PTImageAsset}?,
 		isLooping: boolean?,
 		isCached: boolean?,
 		UnbindWhenCalled: boolean?
@@ -734,20 +734,48 @@ local function ExecuteMetadata(Metadata: Metadata, EPBBData: EPBBTextProperties,
 		local FunctionRef = boundmetadata.FunctionRef
 
 	    if FunctionRef == nil then
-        error("EPBBCode: Bound entry for '" .. metadataname .. "' has no FunctionRef — was it built correctly in Bind_Function?", 2)
+        	error("EPBBCode: Bound entry for '" .. metadataname .. "' has no FunctionRef. Was it bound correctly in Bind_Function?", 2)
     	end
 
     	if typeof(FunctionRef) ~= "function" then
     	    error("EPBBCode: FunctionRef for '" .. metadataname .. "' is not callable, got " .. typeof(FunctionRef), 2)
     	end
 
+		-- add the bound arguments to this function via a table
 		FunctionRef()
 	
 	    if boundmetadata.UnbindWhenCalled then
         	EPBBData._EPBBTextBoundMetadata[EPBBText.Enums.EPBBTypes.Function][metadataname] = nil
     	end
 
+		return EPBBText.Enums.EPBBTypes.Function, FunctionRef
+
 	elseif MetadataType == EPBBText.Enums.EPBBTypes.Image then
+		if typeof(output_location) ~= "UILabel" then error("EPBBCode: Unable to use EPBB tag 'Image' when not outputting to UILabel.")
+
+		local metadataname = Metadata[EPBBText.Enums.SegmentProperty.Value]
+		if metadataname == nil then
+			error("EPBBCode: Failed to get value of Metadata when trying to execute metadata!", 2)
+		end
+
+		local boundmetadata = GetBoundMetadataByName(metadataname, EPBBData)
+		if boundmetadata == nil then
+			error("EPBBCode: No binding found for '" .. metadataname .. "'. Did you call Bind_Function before TypewriterOut?", 2)
+		end
+
+		local ImageID = boundmetadata.ImageID
+		if ImageID == nil then
+			error("EPBBCode: Bound entry for '" .. metadataname .. "' has no ImageID. Was it bound correctly in Bind_Image?.")
+		end
+
+		if boundmetadata.isCached then
+			return EPBBText.Enums.EPBBTypes.Image, boundmetadata.Cache
+		else
+			local metadataimage = UIImage.New()
+			metadataimage.Size = boundmetadata.Size
+			metadataimage.Image = boundmetadata.ImageAsset
+			return EPBBText.Enums.EPBBTypes.Image, metadataimage
+		end
 
 	elseif MetadataType == EPBBText.Enums.EPBBTypes.Animation then
 
@@ -807,9 +835,15 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 	local output_string = { Value = "" }
 	local total_tag_length = { Value = 0 }
 	local should_wait = false
+	local in_image = false
+	local image_map = {}
 
 	local thread = coroutine.create(function()
-		for column, segment in ipairs(self._ParsedText) do
+
+		local column = 1
+		while column <= #self._ParsedText do
+			local segment = self._ParsedText[column]
+
 			if not self.isTypewriter then
 				error("EPBBCode: self.isTypewriter set to false while outputting segments, ending output (why would you do that)", 2)
 			end
@@ -818,7 +852,27 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 			-- get metadata for that column, if there is any
 			if GetMetadataByColumn(column, self._EPBBTextMetadata) ~= nil then
 				local MetadataBind = GetMetadataByColumn(column, self._EPBBTextMetadata) 
-				ExecuteMetadata(MetadataBind, self, output_location)
+				local metadatatype, metadataresult = ExecuteMetadata(MetadataBind, self, output_location)
+
+				if metadatatype == EPBBText.Enums.EPBBTypes.Function then
+					-- literally no reason to exist
+				elseif metadatatype == EPBBText.Enums.EPBBTypes.Image then
+					image_map[#image_map + 1] = metadataresult
+				elseif metadatatype == EPBBText.Enums.EPBBTypes.Image_Sequence then
+
+				elseif metadatatype == EPBBText.Enums.EPBBTypes. then
+				
+				elseif metadatatype == EPBBText.Enums.EPBBTypes.Animation then
+
+				elseif metadatatype == EPBBText.Enums.EPBBTypes.Image_Sequence then
+
+				elseif metadatatype == EPBBText.Enums.EPBBTypes.Gradient then
+
+				elseif metadatatype == EPBBText.Enums.EPBBTypes.BindableEvent then
+	
+				elseif metadatatype == EPBBText.Enums.EPBBTypes.NetworkEvent then
+
+				end
 			end
 
 			-- this literally does everything
@@ -854,6 +908,7 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 				error("EPBBCode: Output location variable is type of " .. typeof(output_location) .. " which is unsupported!", 2)
 			end
 			
+			column += 1
 			coroutine.yield(should_wait)
 		end
 	end)
@@ -908,7 +963,7 @@ function EPBBText:Bind_Function(BoundName: string, BoundFunction: BoundFunction?
 	BoundFunctions[BoundName] = BoundFunctionData
 end
 
-function EPBBText:Bind_Image(BoundName: string, BoundImage: BoundImage?, ImageID: number?, Size: Vector2?, isCached: boolean?, UnbindWhenCalled: boolean?)
+function EPBBText:Bind_Image(BoundName: string, BoundImage: BoundImage?, ImageAsset: PTImageAsset?, Size: Vector2?, isCached: boolean?, UnbindWhenCalled: boolean?)
 	if self._EPBBTextBoundMetadata[EPBBText.Enums.EPBBTypes.Image] == nil then
 		self._EPBBTextBoundMetadata[EPBBText.Enums.EPBBTypes.Image] = {}
 	end
@@ -931,12 +986,13 @@ function EPBBText:Bind_Image(BoundName: string, BoundImage: BoundImage?, ImageID
 				epbbcode_cache.Parent = Hidden
 			end
 
-			Cache.Size = Size or Vector2.New(16, 16)
+			Cache.Size = Size
+			Cache.Image = ImageAsset
 			Cache.Parent = Hidden:FindChild("EPBBCode_Cache")
 		end
 
 		BoundImageData = {
-			ImageID = ImageID,
+			ImageAsset = ImageAsset,
 			isCached = isCached or false,
 			Cache = Cache,
 			UnbindWhenCalled = UnbindWhenCalled or false
