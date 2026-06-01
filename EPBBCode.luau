@@ -11,6 +11,7 @@ type BoundFunctions = { [string]: BoundFunction }
 -- image related types
 type BoundImage = {
 	isCached: boolean,
+	Cache: UIImage?, -- optional depending on the isCached value
 	UnbindWhenCalled: boolean,
 	ImageID: number,
 }
@@ -905,6 +906,42 @@ function EPBBText:Bind_Function(BoundName: string, BoundFunction: BoundFunction?
 	end
 
 	BoundFunctions[BoundName] = BoundFunctionData
+end
+
+function EPBBText:Bind_Image(BoundName: string, BoundImage: BoundImage?, ImageID: number?, Size: Vector2?, isCached: boolean?, UnbindWhenCalled: boolean?)
+	if self._EPBBTextBoundMetadata[EPBBText.Enums.EPBBTypes.Image] == nil then
+		self._EPBBTextBoundMetadata[EPBBText.Enums.EPBBTypes.Image] = {}
+	end
+
+	local BoundImages = self._EPBBTextBoundMetadata[EPBBText.Enums.EPBBTypes.Image]
+	local BoundImageData = {}
+
+	if BoundImage ~= nil then
+		BoundImageData = BoundImage
+	else
+		if ImageID == nil then
+			error("EPBBCode: Bind_Image requires either a BoundImage table or a valid ImageID, got neither.", 2)
+		end
+
+		local Cache = nil
+		if isCached then
+			Cache = UIImage.New()
+			if not Hidden:FindChild("EPBBCode_Cache") then
+				local epbbcode_cache = Folder.New()
+				epbbcode_cache.Parent = Hidden
+			end
+
+			Cache.Size = Size or Vector2.New(16, 16)
+			Cache.Parent = Hidden:FindChild("EPBBCode_Cache")
+		end
+
+		BoundImageData = {
+			ImageID = ImageID,
+			isCached = isCached or false,
+			Cache = Cache,
+			UnbindWhenCalled = UnbindWhenCalled or false
+		}
+	end
 end
 
 function EPBBText:Unbind(EPBBType: number, BoundName: string)
