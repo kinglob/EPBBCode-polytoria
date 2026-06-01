@@ -751,7 +751,7 @@ local function ExecuteMetadata(Metadata: Metadata, EPBBData: EPBBTextProperties,
 		return EPBBText.Enums.EPBBTypes.Function, FunctionRef
 
 	elseif MetadataType == EPBBText.Enums.EPBBTypes.Image then
-		if typeof(output_location) ~= "UILabel" then error("EPBBCode: Unable to use EPBB tag 'Image' when not outputting to UILabel.")
+		if typeof(output_location) ~= "UILabel" then error("EPBBCode: Unable to use EPBB tag 'Image' when not outputting to UILabel.") end
 
 		local metadataname = Metadata[EPBBText.Enums.SegmentProperty.Value]
 		if metadataname == nil then
@@ -859,12 +859,8 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 				elseif metadatatype == EPBBText.Enums.EPBBTypes.Image then
 					image_map[#image_map + 1] = metadataresult
 				elseif metadatatype == EPBBText.Enums.EPBBTypes.Image_Sequence then
-
-				elseif metadatatype == EPBBText.Enums.EPBBTypes. then
 				
 				elseif metadatatype == EPBBText.Enums.EPBBTypes.Animation then
-
-				elseif metadatatype == EPBBText.Enums.EPBBTypes.Image_Sequence then
 
 				elseif metadatatype == EPBBText.Enums.EPBBTypes.Gradient then
 
