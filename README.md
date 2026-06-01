@@ -29,11 +29,11 @@ Some extra things that EPBBCode supports and allows you to do:
   - Playing a sound when a letter is output.
   - Outputting all text when pressing a specific key *(for skipping dialogue)*.
 
-## EPBBCode Progress
+## EPBBCode Progress *(this is non-linear)*
 
 - [x] Class Framework
 - [ ] Typewriter & Regular output to a UILabel
-- [ ] Custom tag parsing
+- [x] Custom tag parsing
 - [ ] Event & Function tags
 - [ ] Gradient colors for letters & text
 - [ ] Animation tags for letters & text
@@ -47,7 +47,7 @@ A wiki is in the works.
 
 Note that this is my first open-source polytoria project, and that Luau is not my area of expertise, so if you find any performance issues or any bugs that I can fix, please open an issue on the issue tracker.
 
-## How do I use EPBBCode
+## How do I use EPBBCode?
 
 Installation is as simple as copying and pasting the EPBBCode.luau contents into your own module file.
 

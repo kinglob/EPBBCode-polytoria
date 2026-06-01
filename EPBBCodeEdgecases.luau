@@ -15,7 +15,7 @@ local function THEFUNCTION()
 	print("THEFUNCTION")
 end
 
-EPBBText:Bind_Function('function', nil, THEFUNCTION, false)
+EPBBText:Bind_Function("function", nil, THEFUNCTION, false)
 EPBBText:Set(EPBBText.Enums.Property.typewriterSpeed, 1)
 print(EPBBText:Get(EPBBCode.Enums.Property.RawText), "printing RawText")
 print(EPBBText:Get(EPBBCode.Enums.Property.ParsedText), "printing ParsedText")

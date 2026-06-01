@@ -24,5 +24,5 @@ format-nix:
 
 format-win:
   ./windows-luau/stylua EPBBCode.luau
-  /.windows-luau/stylua EPBBCodeProfiler.luau
+  ./windows-luau/stylua EPBBCodeProfiler.luau
   ./windows-luau/stylua EPBBCodeEdgecases.luau
