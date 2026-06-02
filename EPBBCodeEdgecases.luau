@@ -41,4 +41,45 @@ for data_type, data in pairs(EPBBText:Get(EPBBCode.Enums.Property.Metadata)) do
 	end
 end
 
-print("---------")
+if not Environment then
+	print("not in polytoria testing environment!")
+	return
+end
+
+print("---------polytoria environment testing---------")
+
+wait(2)
+local Output_UILabel = script.Parent:FindChild("EPBBCode_Testing_Label")
+
+print("----function test----")
+local function createapart()
+	local part = Part.New()
+	part.Size = Vector3.New(5, 5, 5)
+	part.Color = Color.Random()
+	part.Position = localplayer.Position
+	part.Anchored = false
+	part.Parent = Environment
+end
+
+local Polytoria_Test_Function = EPBBCode.New(
+	"hocus pocus create me a [color=red]bloc[/color]<[func='createapart', args={foo=bar}]>[color=red]k[/color]</[func]>!",
+	true
+)
+Polytoria_Test_Function:Bind_Function("createapart", nil, createapart, false)
+Polytoria_Test_Function:Set(EPBBText.Enums.Property.typewriterSpeed, 0.05)
+Polytoria_Test_Function:TypewriterOut(Output_UILabel, function(string_value)
+	print(string_value)
+end)
+
+print("----image test----")
+local Test_ImageAsset = PTImageAsset.New()
+Test_ImageAsset.ImageID = 178035
+Test_ImageAsset.ImageType = Enums.ImageType.Asset
+
+local Polytoria_Test_Image = EPBBCode.New("<[img='image_test1', args={}]>tung tung tung sten</[img]>", true)
+
+Polytoria_Test_Image:Bind_Image("image_test1", nil, Test_ImageAsset, Vector2.New(32, 32), false, false)
+Polytoria_Test_Image:Set(EPBBText.Enums.Property.typewriterSpeed, 0.05)
+Polytoria_Test_Image:TypewriterOut(Output_UILabel, function(string_value)
+	print(string_value)
+end)

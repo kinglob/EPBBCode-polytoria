@@ -116,6 +116,7 @@ export type EPBBTextProperties = {
 		BoundName: string,
 		BoundImage: BoundImage?,
 		ImageAsset: PTImageAsset?,
+		ImageSize: Vector2?,
 		isCached: boolean?,
 		UnbindWhenCalled: boolean?
 	) -> nil,
@@ -262,126 +263,118 @@ local function GetEPBBCodeTagData(Tag: string, Column: number)
 	local tag_type = Tag:sub(tag_start + 2, valueDeclaration - 1)
 
 	local TypeLookupTable = {
-		["func"] = { [1] = EPBBText.Enums.EPBBTypes.Function, [2] = "String" }, -- will find a corresponding Function
-		["img"] = { [1] = EPBBText.Enums.EPBBTypes.Image, [2] = "Number" }, -- will find a correspending Image
-		["img_seq"] = { [1] = EPBBText.Enums.EPBBTypes.Image_Sequence, [2] = "Table" }, -- will find a corresponding Image Sequence table
-		["event"] = { [1] = EPBBText.Enums.EPBBTypes.BindableEvent, [2] = "String" }, -- will find a correspending BindableEvent
-		["netevent"] = { [1] = EPBBText.Enums.EPBBTypes.NetworkEvent, [2] = "String" }, -- will find a corresponding NetworkEvent
-		["anim"] = { [1] = EPBBText.Enums.EPBBTypes.Animation, [2] = "String" }, -- will find a corresponding TweenObject
-		["gradient"] = { [1] = EPBBText.Enums.EPBBTypes.Gradient, [2] = "String" }, -- will find a corresponding GradientImageAsset
+		["func"] = EPBBText.Enums.EPBBTypes.Function, -- will find a corresponding Function
+		["img"] = EPBBText.Enums.EPBBTypes.Image, -- will find a correspending Image
+		["img_seq"] = EPBBText.Enums.EPBBTypes.Image_Sequence, -- will find a corresponding Image Sequence table
+		["event"] = EPBBText.Enums.EPBBTypes.BindableEvent, -- will find a correspending BindableEvent
+		["netevent"] = EPBBText.Enums.EPBBTypes.NetworkEvent, -- will find a corresponding NetworkEvent
+		["anim"] = EPBBText.Enums.EPBBTypes.Animation, -- will find a corresponding TweenObject
+		["gradient"] = EPBBText.Enums.EPBBTypes.Gradient, -- will find a corresponding GradientImageAsset
 	}
 
-	local typeData = TypeLookupTable[tag_type]
-	local literal_type = typeData[1]
-	local value_type = typeData[2]
+	local literal_type = TypeLookupTable[tag_type]
 	data[EPBBText.Enums.SegmentProperty.Type] = literal_type
 
-	-- add other value types later
-	if value_type == "String" then
-		-- find single quotes
-		local string_start = Tag:find("'", valueDeclaration, true)
-		-- +1 to avoid the initial '
-		local string_end = Tag:find("'", string_start + 1, true)
+	-- find single quotes
+	local string_start = Tag:find("'", valueDeclaration, true)
+	-- +1 to avoid the initial '
+	local string_end = Tag:find("'", string_start + 1, true)
 
-		-- +1 to avoid the ', -1 to avoid another '
-		local value = Tag:sub(string_start + 1, string_end - 1)
-		data[EPBBText.Enums.SegmentProperty.Value] = value
+	-- +1 to avoid the ', -1 to avoid another '
+	local value = Tag:sub(string_start + 1, string_end - 1)
+	data[EPBBText.Enums.SegmentProperty.Value] = value
 
-		-- get args
-		local argsDeclaration = Tag:find("args", string_start, true)
-		if argsDeclaration == nil then
-			warn("EPBBCode: unable to find args declaration in EPBBCode tag, leaving args as an empty table.")
-			data[EPBBText.Enums.SegmentProperty.Args] = {}
-			return data
-		else
-			local argsStart = Tag:find("{", argsDeclaration, true)
-			local argsEnd = Tag:find("}", argsStart, true)
-			local argsData = {}
+	-- get args
+	local argsDeclaration = Tag:find("args", string_start, true)
+	if argsDeclaration == nil then
+		warn("EPBBCode: unable to find args declaration in EPBBCode tag, leaving args as an empty table.")
+		data[EPBBText.Enums.SegmentProperty.Args] = {}
+		return data
+	else
+		local argsStart = Tag:find("{", argsDeclaration, true)
+		local argsEnd = Tag:find("}", argsStart, true)
+		local argsData = {}
 
-			-- gets key-value pairs
-			-- example: Speed=10
-			--          Speed   10
-			--          Key     Value
-			for arg_name, arg in Tag:sub(argsStart, argsEnd):gmatch("([%w_]+)=([%w_]+)") do
-				argsData[tostring(arg_name)] = arg
-			end
-
-			data[EPBBText.Enums.SegmentProperty.Args] = argsData
+		-- gets key-value pairs
+		-- example: Speed=10
+		--          Speed   10
+		--          Key     Value
+		for arg_name, arg in Tag:sub(argsStart, argsEnd):gmatch("([%w_]+)=([%w_]+)") do
+			argsData[tostring(arg_name)] = arg
 		end
 
-		-- get wrapped text
+		data[EPBBText.Enums.SegmentProperty.Args] = argsData
+	end
 
-		-- if not img or img_seq
-		if not (literal_type == "Image") and not (literal_type == "Image Sequence") then
-			local _, open_tag_end = Tag:find("]>", argsDeclaration, true)
-			-- searches for </[
-			local close_tag_start = Tag:find("</[", open_tag_end, true)
-			local _, close_tag_end = Tag:find("]>", close_tag_start, true)
-			-- +2 to account for the <>
-			local close_tag_length = close_tag_end - close_tag_start + 2
-			data[EPBBText.Enums.SegmentProperty.CloseTagLength] = close_tag_length
+	-- get wrapped text
 
-			-- +1 to avoid the > on the open tag end, -1 to avoid the < on the close tag start
-			local wrapped_text = Tag:sub(open_tag_end + 1, close_tag_start - 1)
-			-- check for bbcode / epbbcode tags inside of the wrapped text
-			local open_bbcode_tag_start = wrapped_text:find("[", 1, true)
-			if open_bbcode_tag_start == nil then
-				wrapped_text_data[#wrapped_text_data + 1] = wrapped_text
+	-- if not img or img_seq
+	if not (literal_type == "Image") and not (literal_type == "Image Sequence") then
+		local _, open_tag_end = Tag:find("]>", argsDeclaration, true)
+		-- searches for </[
+		local close_tag_start = Tag:find("</[", open_tag_end, true)
+		local _, close_tag_end = Tag:find("]>", close_tag_start, true)
+		-- +2 to account for the <>
+		local close_tag_length = close_tag_end - close_tag_start + 2
+		data[EPBBText.Enums.SegmentProperty.CloseTagLength] = close_tag_length
+
+		-- +1 to avoid the > on the open tag end, -1 to avoid the < on the close tag start
+		local wrapped_text = Tag:sub(open_tag_end + 1, close_tag_start - 1)
+		-- check for bbcode / epbbcode tags inside of the wrapped text
+		local open_bbcode_tag_start = wrapped_text:find("[", 1, true)
+		if open_bbcode_tag_start == nil then
+			wrapped_text_data[#wrapped_text_data + 1] = wrapped_text
+		else
+			local open_bbcode_tag_end = wrapped_text:find("]", open_bbcode_tag_start, true)
+			if open_bbcode_tag_end == nil then
+				error("EPBBCode: Couldn't find end of an opening BBCode tag wrapped inside of an EPBBCode tag!", 2)
+			end
+			local open_bbcode_tag = wrapped_text:sub(open_bbcode_tag_start, open_bbcode_tag_end)
+			wrapped_text_data[#wrapped_text_data + 1] = open_bbcode_tag
+
+			local close_bbcode_tag_start = wrapped_text:find("[/", open_bbcode_tag_end, true)
+			if close_bbcode_tag_start == nil then
+				warn("EPBBCode: Couldn't find closing BBCode tag wrapped inside of an EPBBCode tag!", 2)
 			else
-				local open_bbcode_tag_end = wrapped_text:find("]", open_bbcode_tag_start, true)
-				if open_bbcode_tag_end == nil then
-					error("EPBBCode: Couldn't find end of an opening BBCode tag wrapped inside of an EPBBCode tag!", 2)
+				local close_bbcode_tag_end = wrapped_text:find("]", close_bbcode_tag_start, true)
+				if close_bbcode_tag_end == nil then
+					error("EPBBCode: Couldn't find end of an opening BBCode tag wrapped inside of a EPBBCode tag!", 2)
 				end
-				local open_bbcode_tag = wrapped_text:sub(open_bbcode_tag_start, open_bbcode_tag_end)
-				wrapped_text_data[#wrapped_text_data + 1] = open_bbcode_tag
+				-- short by one character, so add a +1
+				local close_bbcode_tag_length = close_bbcode_tag_end - close_bbcode_tag_start + 1
+				local close_bbcode_tag = wrapped_text:sub(close_bbcode_tag_start, close_bbcode_tag_end)
 
-				local close_bbcode_tag_start = wrapped_text:find("[/", open_bbcode_tag_end, true)
-				if close_bbcode_tag_start == nil then
-					warn("EPBBCode: Couldn't find closing BBCode tag wrapped inside of an EPBBCode tag!", 2)
-				else
-					local close_bbcode_tag_end = wrapped_text:find("]", close_bbcode_tag_start, true)
-					if close_bbcode_tag_end == nil then
-						error(
-							"EPBBCode: Couldn't find end of an opening BBCode tag wrapped inside of a EPBBCode tag!",
-							2
-						)
-					end
-					-- short by one character, so add a +1
-					local close_bbcode_tag_length = close_bbcode_tag_end - close_bbcode_tag_start + 1
-					local close_bbcode_tag = wrapped_text:sub(close_bbcode_tag_start, close_bbcode_tag_end)
+				wrapped_text_data[#wrapped_text_data + 1] = close_bbcode_tag
 
-					wrapped_text_data[#wrapped_text_data + 1] = close_bbcode_tag
+				-- get characters wrapped in the bbcode tags
+				-- +1 to avoid the ], -1 to avoid the [
+				local text_in_bbcode_tags = wrapped_text:sub(open_bbcode_tag_end + 1, close_bbcode_tag_start - 1)
+				local i = 1
 
-					-- get characters wrapped in the bbcode tags
-					-- +1 to avoid the ], -1 to avoid the [
-					local text_in_bbcode_tags = wrapped_text:sub(open_bbcode_tag_end + 1, close_bbcode_tag_start - 1)
-					local i = 1
-
-					while i <= #text_in_bbcode_tags do
-						wrapped_text_data[#wrapped_text_data + 1] = {
-							[EPBBText.Enums.SegmentProperty.Text] = text_in_bbcode_tags:sub(i, i),
-							[EPBBText.Enums.SegmentProperty.CloseTagLength] = close_tag_length,
-							[EPBBText.Enums.SegmentProperty.SegmentType] = EPBBText.Enums.SegmentTypes.Offset_Character,
-						}
-						i += 1
-					end
+				while i <= #text_in_bbcode_tags do
+					wrapped_text_data[#wrapped_text_data + 1] = {
+						[EPBBText.Enums.SegmentProperty.Text] = text_in_bbcode_tags:sub(i, i),
+						[EPBBText.Enums.SegmentProperty.CloseTagLength] = close_tag_length,
+						[EPBBText.Enums.SegmentProperty.SegmentType] = EPBBText.Enums.SegmentTypes.Offset_Character,
+					}
+					i += 1
 				end
 			end
-
-		-- if img or img
-		else
-			local _, open_tag_end = Tag:find("]>", argsDeclaration, true)
-			-- searches for </[
-			local close_tag_start = Tag:find("</[", open_tag_end, true)
-			local _, close_tag_end = Tag:find("]>", close_tag_start, true)
-			-- +2 to account for the <>
-			local close_tag_length = close_tag_end - close_tag_start + 2
-			data[EPBBText.Enums.SegmentProperty.CloseTagLength] = close_tag_length
-
-			-- +1 to avoid the > on the open tag end, -1 to avoid the < on the close tag start
-			local outside_text = Tag:sub(open_tag_end + 1, close_tag_start - 1)
-			data[EPBBText.Enums.SegmentProperty.OutsideText] = outside_text
 		end
+
+	-- if img or img
+	else
+		local _, open_tag_end = Tag:find("]>", argsDeclaration, true)
+		-- searches for </[
+		local close_tag_start = Tag:find("</[", open_tag_end, true)
+		local _, close_tag_end = Tag:find("]>", close_tag_start, true)
+		-- +2 to account for the <>
+		local close_tag_length = close_tag_end - close_tag_start + 2
+		data[EPBBText.Enums.SegmentProperty.CloseTagLength] = close_tag_length
+
+		-- +1 to avoid the > on the open tag end, -1 to avoid the < on the close tag start
+		local outside_text = Tag:sub(open_tag_end + 1, close_tag_start - 1)
+		data[EPBBText.Enums.SegmentProperty.OutsideText] = outside_text
 	end
 
 	return data
@@ -726,6 +719,7 @@ type OutputLocation = UILabel | string | { string } | StringValue
 local function ExecuteMetadata(Metadata: Metadata, EPBBData: EPBBTextProperties, output_location: OutputLocation)
 	local MetadataType = Metadata[EPBBText.Enums.SegmentProperty.Type]
 
+	-- function exec
 	if MetadataType == EPBBText.Enums.EPBBTypes.Function then
 		local metadataname = Metadata[EPBBText.Enums.SegmentProperty.Value]
 		if metadataname == nil then
@@ -765,6 +759,8 @@ local function ExecuteMetadata(Metadata: Metadata, EPBBData: EPBBTextProperties,
 		end
 
 		return EPBBText.Enums.EPBBTypes.Function, FunctionRef
+
+	-- image exec
 	elseif MetadataType == EPBBText.Enums.EPBBTypes.Image then
 		if typeof(output_location) ~= "UILabel" then
 			error("EPBBCode: Unable to use EPBB tag 'Image' when not outputting to UILabel.")
@@ -785,7 +781,7 @@ local function ExecuteMetadata(Metadata: Metadata, EPBBData: EPBBTextProperties,
 			)
 		end
 
-		local ImageID = boundmetadata.ImageID
+		local ImageID = boundmetadata.ImageAsset.ImageID
 		if ImageID == nil then
 			error(
 				"EPBBCode: Bound entry for '"
@@ -795,17 +791,29 @@ local function ExecuteMetadata(Metadata: Metadata, EPBBData: EPBBTextProperties,
 		end
 
 		if boundmetadata.isCached then
+			boundmetadata.Cache.Parent = output_location
 			return EPBBText.Enums.EPBBTypes.Image, boundmetadata.Cache
 		else
 			local metadataimage = UIImage.New()
-			metadataimage.Size = boundmetadata.Size
+			metadataimage.SizeOffset = boundmetadata.ImageSize
 			metadataimage.Image = boundmetadata.ImageAsset
+			metadataimage.Parent = output_location
 			return EPBBText.Enums.EPBBTypes.Image, metadataimage
 		end
+
+	-- animation exec
 	elseif MetadataType == EPBBText.Enums.EPBBTypes.Animation then
+
+	-- image sequence exec
 	elseif MetadataType == EPBBText.Enums.EPBBTypes.Image_Sequence then
+
+	-- gradient exec
 	elseif MetadataType == EPBBText.Enums.EPBBTypes.Gradient then
+
+	-- bindable event exec
 	elseif MetadataType == EPBBText.Enums.EPBBTypes.BindableEvent then
+
+	-- network event exec
 	elseif MetadataType == EPBBText.Enums.EPBBTypes.NetworkEvent then
 	end
 end
@@ -990,7 +998,7 @@ function EPBBText:Bind_Image(
 	BoundName: string,
 	BoundImage: BoundImage?,
 	ImageAsset: PTImageAsset?,
-	Size: Vector2?,
+	ImageSize: Vector2?,
 	isCached: boolean?,
 	UnbindWhenCalled: boolean?
 )
@@ -1002,10 +1010,35 @@ function EPBBText:Bind_Image(
 	local BoundImageData = {}
 
 	if BoundImage ~= nil then
+		if BoundImage.ImageAsset == nil then
+			error("EPBBCode: Bind_Image requires either a BoundImage table or a valid ImageAsset, got neither.", 2)
+		elseif typeof(BoundImage.ImageAsset.ImageID) ~= "number" then
+			error(
+				"EPBBCode: Bind_Image requires an ImageAsset with a valid ImageID when passing in an ImageAsset or BoundImage table."
+			)
+		end
+
+		local Cache = BoundImage.Cache
+		if BoundImage.isCached then
+			Cache = UIImage.New()
+			if not Hidden:FindChild("EPBBCode_Cache") then
+				local epbbcode_cache = Folder.New()
+				epbbcode_cache.Parent = Hidden
+			end
+
+			Cache.SizeOffset = BoundImage.ImageSize
+			Cache.Image = BoundImage.ImageAsset
+			Cache.Parent = Hidden:FindChild("EPBBCode_Cache")
+		end
+
 		BoundImageData = BoundImage
 	else
-		if ImageID == nil then
-			error("EPBBCode: Bind_Image requires either a BoundImage table or a valid ImageID, got neither.", 2)
+		if ImageAsset == nil then
+			error("EPBBCode: Bind_Image requires either a BoundImage table or a valid ImageAsset, got neither.", 2)
+		elseif typeof(ImageAsset.ImageID) ~= "number" then
+			error(
+				"EPBBCode: Bind_Image requires an ImageAsset with a valid ImageID when passing in an ImageAsset or BoundImage table."
+			)
 		end
 
 		local Cache = nil
@@ -1016,18 +1049,21 @@ function EPBBText:Bind_Image(
 				epbbcode_cache.Parent = Hidden
 			end
 
-			Cache.Size = Size
+			Cache.SizeOffset = ImageSize
 			Cache.Image = ImageAsset
 			Cache.Parent = Hidden:FindChild("EPBBCode_Cache")
 		end
 
 		BoundImageData = {
 			ImageAsset = ImageAsset,
+			ImageSize = ImageSize,
 			isCached = isCached or false,
 			Cache = Cache,
 			UnbindWhenCalled = UnbindWhenCalled or false,
 		}
 	end
+
+	BoundImages[BoundName] = BoundImageData
 end
 
 function EPBBText:Unbind(EPBBType: number, BoundName: string) end
