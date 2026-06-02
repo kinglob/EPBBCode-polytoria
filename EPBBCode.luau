@@ -85,6 +85,7 @@ export type EPBBTextProperties = {
 	-- mutable
 	isPaused: boolean,
 	typewriterSpeed: number,
+	FontSize: number,
 	RawText: string,
 
 	-- immutable while outputting
@@ -174,6 +175,7 @@ local EPBBText = {
 			Length = 6,
 			isOutputting = 7,
 			Metadata = 8,
+			FontSize = 9
 		},
 
 		Tags = {
@@ -848,6 +850,18 @@ local function ParseSegment(segment: any, string: { string }, EPBBData: EPBBText
 	end
 end
 
+-- checks if a specific true column number, row is in an image
+-- true column is expected to be a table value as it's passed by reference
+local function IsInImage(true_column: {number}, row: number, font_size: number, output_location: UILabel, image_map: {[number]: UIImage}): boolean
+
+end
+
+-- gets the row index based on the true column number
+-- true column is expected to be a table value as it's passed by reference
+local function GetRow(true_column: {number}, font_size: number, output_location: UILabel): number
+
+end
+
 --[[
 returns a string being the output string going to the output location
 
@@ -865,8 +879,14 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 	local in_image = false
 	local image_map = {}
 
+	-- current_font_size should automatically update depending on if it encounters a font_size tag
+	local current_font_size = self.FontSize
+
 	local thread = coroutine.create(function()
+
 		local column = 1
+		local true_column = { Value = 1}
+
 		while column <= #self._ParsedText do
 			local segment = self._ParsedText[column]
 
@@ -936,6 +956,16 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 			end
 
 			column += 1
+			true_column.Value += 1
+
+			-- shift images that have been added to the left if should wait
+			if should_wait then
+				for i = 0, #image_map do
+					local held_image = image_map[i]
+					held_image.Position = held_image.Position - Vector2.New(current_font_size, 0)
+				end
+			end
+
 			coroutine.yield(should_wait)
 		end
 	end)
@@ -1068,10 +1098,18 @@ end
 
 function EPBBText:Unbind(EPBBType: number, BoundName: string) end
 
-function EPBBText.New(RawText: string, isTypewriter: boolean): EPBBTextProperties
+--[[
+Makes a new EPBBText with the specified string
+RawText (and thereby the parsed output text) can be changed by changing the RawText value.
+isTypewriter and FontSize default to false, 14 repsectively.
+]]-- 
+function EPBBText.New(RawText: string, isTypewriter: boolean?, FontSize: number?): EPBBTextProperties
 	local self = setmetatable({}, EPBBText)
-	self.isTypewriter = isTypewriter
-	self.RawText = RawText
+	self.isTypewriter = isTypewriter or false
+	self.FontSize = FontSize or 14
+
+	-- set text font size to the set FontSize
+	self.RawText = "[font_size=" .. tostring(self.FontSize) .. "]" .. RawText .. "[/font_size]"
 	self._EPBBTextBoundMetadata = {}
 
 	if isTypewriter then
