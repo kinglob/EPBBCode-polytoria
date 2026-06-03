@@ -899,17 +899,6 @@ local function ParseSegment(segment: any, string: { string }, EPBBData: EPBBText
 	return font_size_value
 end
 
--- checks if a specific true column number, row is in an image
--- true column is expected to be a table value as it's passed by reference
-local function IsInImage(
-	true_column: { number },
-	row: number,
-	font_size: number,
-	output_location: UILabel,
-	image_map: { [number]: UIImage }
-): boolean
-end
-
 -- gets the row index based on the true column number
 -- true column is expected to be a table value as it's passed by reference
 local function GetRow(true_column: { number }, font_size: number, output_location: UILabel): number end
