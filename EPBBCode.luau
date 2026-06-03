@@ -175,7 +175,7 @@ local EPBBText = {
 			Length = 6,
 			isOutputting = 7,
 			Metadata = 8,
-			FontSize = 9
+			FontSize = 9,
 		},
 
 		Tags = {
@@ -612,6 +612,7 @@ function EPBBText:Get(Property: number): any
 		[EPBBText.Enums.Property.isTypewriter] = self.isTypewriter,
 		[EPBBText.Enums.Property.isPaused] = self.isPaused,
 		[EPBBText.Enums.Property.typewriterSpeed] = self.typewriterSpeed,
+		[EPBBText.Enums.Property.FontSize] = self.FontSize,
 		[EPBBText.Enums.Property.ParsedText] = function()
 			return self._ParsedText
 		end,
@@ -793,13 +794,39 @@ local function ExecuteMetadata(Metadata: Metadata, EPBBData: EPBBTextProperties,
 		end
 
 		if boundmetadata.isCached then
-			boundmetadata.Cache.Parent = output_location
-			return EPBBText.Enums.EPBBTypes.Image, boundmetadata.Cache
+			local image_cache = boundmetadata.Cache
+			image_cache.PositionRelative = output_location.PositionRelative
+
+			local horizontal_alignment = output_location.HorizontalAlignment
+			local vertical_alignment = output_location.VerticalAlignment
+
+			if Enums.VerticalAlignment.Top == vertical_alignment then
+				image_cache.PositionRelative = Vector2.New(image_cache.PositionRelative.X, 0)
+				image_cache.PositionOffset = Vector2.New(image_cache.SizeOffset.X / 2, image_cache.SizeOffset.Y / 2)
+			elseif Enums.VerticalAlignment.Middle == vertical_alignment then
+				image_cache.PositionRelative = Vector2.New(image_cache.PositionRelative.X, 0.5)
+				image_cache.PositionOffset = Vector2.New(image_cache.SizeOffset.X / 2, image_cache.SizeOffset.Y / 2)
+			elseif Enums.VerticalAlignment.Bottom == vertical_alignment then
+				image_cache.PositionRelative = Vector2.New(image_cache.PositionRelative.X, 1)
+				image_cache.PositionOffset = Vector2.New(image_cache.SizeOffset.X / 2, -image_cache.SizeOffset.Y / 2)
+			end
+
+			if Enums.HorizontalAlignment.Left == horizontal_alignment then
+				image_cache.PositionRelative = Vector2.New(0, image_cache.PositionRelative.Y)
+			elseif Enums.HorizontalAlignment.Center == horizontal_alignment then
+				image_cache.PositionRelative = Vector2.New(0.5, image_cache.PositionRelative.Y)
+			elseif Enums.HorizontalAlignment.Right == horizontal_alignment then
+				image_cache.PositionRelative = Vector2.New(1, image_cache.PositionRelative.Y)
+			end
+
+			image_cache.Parent = output_location
+			return EPBBText.Enums.EPBBTypes.Image, image_cache
 		else
 			local metadataimage = UIImage.New()
 			metadataimage.SizeOffset = boundmetadata.ImageSize
 			metadataimage.Image = boundmetadata.ImageAsset
 			metadataimage.Parent = output_location
+			boundmetadata.Cache = metadataimage
 			return EPBBText.Enums.EPBBTypes.Image, metadataimage
 		end
 
@@ -824,13 +851,6 @@ end
 -- luau, PLEASE give us a way to pass by reference without tables :sob:
 local function ParseSegment(segment: any, string: { string }, EPBBData: EPBBTextProperties): nil
 	-- check if the segment is a table
-	local font_size_start, font_size_end = segment:find("font_size")
-	local font_size_value = nil
-	if font_size_start then
-		local value_declaration_start = segment:find("=", font_size_end)
-		local value_declaration_end = segment:find("]", value_declaration)
-		font_size_value = tonumber(segment:sub(value_declaration_start, value_declaration_end))
-	end
 
 	if typeof(segment) == "table" then
 		-- check segment type
@@ -845,6 +865,16 @@ local function ParseSegment(segment: any, string: { string }, EPBBData: EPBBText
 
 			string.Value = string_first_half .. segment_character .. string_second_half
 
+			if #segment_character > 1 then
+				local font_size_start, font_size_end = segment:find("font_size")
+				local font_size_value = nil
+				if font_size_start then
+					local value_declaration_start = segment:find("=", font_size_end)
+					local value_declaration_end = segment:find("]", value_declaration)
+					font_size_value = tonumber(segment:sub(value_declaration_start, value_declaration_end))
+				end
+			end
+
 			return
 
 		-- if not (how)
@@ -854,6 +884,15 @@ local function ParseSegment(segment: any, string: { string }, EPBBData: EPBBText
 
 	-- if the segment is a regular character / text
 	else
+		if #segment > 1 then
+			local font_size_start, font_size_end = segment:find("font_size")
+			local font_size_value = nil
+			if font_size_start then
+				local value_declaration_start = segment:find("=", font_size_end)
+				local value_declaration_end = segment:find("]", value_declaration)
+				font_size_value = tonumber(segment:sub(value_declaration_start, value_declaration_end))
+			end
+		end
 		string.Value = string.Value .. segment
 	end
 
@@ -862,15 +901,18 @@ end
 
 -- checks if a specific true column number, row is in an image
 -- true column is expected to be a table value as it's passed by reference
-local function IsInImage(true_column: {number}, row: number, font_size: number, output_location: UILabel, image_map: {[number]: UIImage}): boolean
-
+local function IsInImage(
+	true_column: { number },
+	row: number,
+	font_size: number,
+	output_location: UILabel,
+	image_map: { [number]: UIImage }
+): boolean
 end
 
 -- gets the row index based on the true column number
 -- true column is expected to be a table value as it's passed by reference
-local function GetRow(true_column: {number}, font_size: number, output_location: UILabel): number
-
-end
+local function GetRow(true_column: { number }, font_size: number, output_location: UILabel): number end
 
 --[[
 returns a string being the output string going to the output location
@@ -887,15 +929,17 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 	local total_tag_length = { Value = 0 }
 	local should_wait = false
 	local in_image = false
+	local is_whitespace = false
 	local image_map = {}
+	local horizontal_alignment = output_location.HorizontalAlignment
+	local vertical_alignment = output_location.VerticalAlignment
 
 	-- current_font_size should automatically update depending on if it encounters a font_size tag
 	local current_font_size = self.FontSize
 
 	local thread = coroutine.create(function()
-
 		local column = 1
-		local true_column = { Value = 1}
+		local true_column = { Value = 1 }
 
 		while column <= #self._ParsedText do
 			local segment = self._ParsedText[column]
@@ -935,6 +979,12 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 			if typeof(segment) ~= "table" then
 				if not (#segment > 1) then
 					should_wait = true
+
+					if segment == " " then
+						is_whitespace = true
+					else
+						is_whitespace = false
+					end
 				else
 					should_wait = false
 					total_tag_length.Value += #segment
@@ -944,6 +994,12 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 				if
 					segment[EPBBText.Enums.SegmentProperty.SegmentType] == EPBBText.Enums.SegmentTypes.Offset_Character
 				then
+					if segment[EPBBText.Enums.SegmentProperty.Text] == " " then
+						is_whitespace = true
+					else
+						is_whitespace = false
+					end
+
 					if not (#segment[EPBBText.Enums.SegmentProperty.Text] > 1) then
 						should_wait = true
 					end
@@ -971,11 +1027,21 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 			column += 1
 			true_column.Value += 1
 
-			-- shift images that have been added to the left if should wait
-			if should_wait then
-				for i = 0, #image_map do
-					local held_image = image_map[i]
-					held_image.Position = held_image.Position - Vector2.New(current_font_size, 0)
+			-- shift images that have been added to the right if should wait
+			if should_wait and not is_whitespace then
+				for i = 1, #image_map do
+					local image_ref = image_map[i]
+
+					-- defaults to left horizontal alignment
+					if horizontal_alignment == Enums.HorizontalAlignment.Center then
+						image_ref.PositionOffset = image_ref.PositionOffset + Vector2.New(current_font_size / 2, 0)
+
+					-- leave this as is until right-to-left languages / text is supported
+					elseif horizontal_alignment == Enums.HorizontalAlignment.Right then
+						image_ref.PositionOffset = image_ref.PositionOffset + Vector2.New(current_font_size / 2, 0)
+					else
+						image_ref.PositionOffset = image_ref.PositionOffset + Vector2.New(current_font_size, 0)
+					end
 				end
 			end
 
@@ -1115,7 +1181,8 @@ function EPBBText:Unbind(EPBBType: number, BoundName: string) end
 Makes a new EPBBText with the specified string
 RawText (and thereby the parsed output text) can be changed by changing the RawText value.
 isTypewriter and FontSize default to false, 14 repsectively.
-]]-- 
+]]
+--
 function EPBBText.New(RawText: string, isTypewriter: boolean?, FontSize: number?): EPBBTextProperties
 	local self = setmetatable({}, EPBBText)
 	self.isTypewriter = isTypewriter or false

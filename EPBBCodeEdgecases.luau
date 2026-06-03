@@ -1,11 +1,10 @@
 --!nocheck
-local EPBBCode = require("./EPBBCode")
+
+local localplayer = Players.LocalPlayer
+local EPBBCode = require(localplayer.EBPPCode)
 
 print("edgecase test suite!")
 
--- issue with this edgecase
--- the regular color bbcode tag is processed as regular text (NOT GOOD) when put inside of a EPBBCode tag (the function one)
--- fix this later as it shouldn't process the bbcode tag as regular text, and instead should be appended per-tag
 local EPBBText = EPBBCode.New(
 	"test, test, <[func='function', args={foo=bar}]>[color=red]red[/color]</[func]> and [b]bold[/b] andredredredredredredredredredredredredredredredredredredredredredredredredredredredredredredredred <[func='function', args={foo=bar}]>[color=red]red[/color]</[func]> [b]bold[/b] and <[func='function', args={foo=bar}]>[color=red]red[/color]</[func]>",
 	true
@@ -16,7 +15,7 @@ local function THEFUNCTION()
 end
 
 EPBBText:Bind_Function("function", nil, THEFUNCTION, false)
-EPBBText:Set(EPBBText.Enums.Property.typewriterSpeed, 1)
+EPBBText:Set(EPBBText.Enums.Property.typewriterSpeed, 0.05)
 print(EPBBText:Get(EPBBCode.Enums.Property.RawText), "printing RawText")
 print(EPBBText:Get(EPBBCode.Enums.Property.ParsedText), "printing ParsedText")
 
@@ -72,14 +71,15 @@ Polytoria_Test_Function:TypewriterOut(Output_UILabel, function(string_value)
 end)
 
 print("----image test----")
+local Polytoria_Test_Image = EPBBCode.New("<[img='image_test1', args={}]>tung tung tung sten</[img]>", true)
+
 local Test_ImageAsset = PTImageAsset.New()
 Test_ImageAsset.ImageID = 178035
 Test_ImageAsset.ImageType = Enums.ImageType.Asset
 
-local Polytoria_Test_Image = EPBBCode.New("<[img='image_test1', args={}]>tung tung tung sten</[img]>", true)
+Polytoria_Test_Image:Bind_Image("image_test1", nil, Test_ImageAsset, Vector2.New(32, 32), true, false)
+Polytoria_Test_Image:Set(EPBBCode.Enums.Property.typewriterSpeed, 0.2)
 
-Polytoria_Test_Image:Bind_Image("image_test1", nil, Test_ImageAsset, Vector2.New(32, 32), false, false)
-Polytoria_Test_Image:Set(EPBBText.Enums.Property.typewriterSpeed, 0.05)
 Polytoria_Test_Image:TypewriterOut(Output_UILabel, function(string_value)
 	print(string_value)
 end)
