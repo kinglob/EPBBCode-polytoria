@@ -824,6 +824,14 @@ end
 -- luau, PLEASE give us a way to pass by reference without tables :sob:
 local function ParseSegment(segment: any, string: { string }, EPBBData: EPBBTextProperties): nil
 	-- check if the segment is a table
+	local font_size_start, font_size_end = segment:find("font_size")
+	local font_size_value = nil
+	if font_size_start then
+		local value_declaration_start = segment:find("=", font_size_end)
+		local value_declaration_end = segment:find("]", value_declaration)
+		font_size_value = tonumber(segment:sub(value_declaration_start, value_declaration_end))
+	end
+
 	if typeof(segment) == "table" then
 		-- check segment type
 		-- if offset character
@@ -848,6 +856,8 @@ local function ParseSegment(segment: any, string: { string }, EPBBData: EPBBText
 	else
 		string.Value = string.Value .. segment
 	end
+
+	return font_size_value
 end
 
 -- checks if a specific true column number, row is in an image
@@ -916,7 +926,10 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 			end
 
 			-- this literally does everything
-			ParseSegment(segment, output_string, self)
+			local font_size_value = ParseSegment(segment, output_string, self)
+			if font_size_value then
+				current_font_size = font_size_value
+			end
 
 			-- check if segment is > 1 (if true, it's a bbcode tag)
 			if typeof(segment) ~= "table" then
