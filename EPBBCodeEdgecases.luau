@@ -71,7 +71,7 @@ Polytoria_Test_Function:TypewriterOut(Output_UILabel, function(string_value)
 end)
 
 print("----image test----")
-local Polytoria_Test_Image = EPBBCode.New("<[img='image_test1', args={}]>tung tung tung sten</[img]>                         whitespace!                                  applesauce!<[img='image_test2', args={}]> img2</[img]>", true)
+local Polytoria_Test_Image = EPBBCode.New("<[img='image_test1', args={}]>tung tung tung sten</[img]> there is a lot of whitespace here and it will result in a new line right about now! applesauce!<[img='image_test2', args={}]> img2</[img]>", true)
 
 local Test_ImageAsset = PTImageAsset.New()
 Test_ImageAsset.ImageID = 178035
@@ -82,5 +82,4 @@ Polytoria_Test_Image:Bind_Image("image_test2", nil, Test_ImageAsset, Vector2.New
 Polytoria_Test_Image:Set(EPBBCode.Enums.Property.typewriterSpeed, 0.05)
 
 Polytoria_Test_Image:TypewriterOut(Output_UILabel, function(string_value)
-	print(string_value)
 end)

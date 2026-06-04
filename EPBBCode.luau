@@ -902,11 +902,12 @@ end
 
 -- gets the row index based on the true column number
 -- true column is expected to be a table value as it's passed by reference
+-- replace this with a smarter structure that checks all previous font tags and gets the text length in pixels
 local function GetRow(true_column: { number }, font_size: number, output_location: OutputLocation): number
 	if typeof(output_location) ~= "UILabel" then error("EPBBCode: Output location is not of type UILabel. Cannot get row number.", 2) end
 
-	local width_in_characters = output_location.AbsoluteSize.X / font_size
-	return math.ceil(true_column.Value / width_in_characters)
+	local width_in_characters = output_location.SizeOffset.X / font_size
+	return math.floor((true_column.Value - 1) / width_in_characters) + 1
 end
 
 -- add sizerelative support later
@@ -934,8 +935,6 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 	local output_string = { Value = "" }
 	local total_tag_length = { Value = 0 }
 	local should_wait = false
-	local in_image = false
-	local is_whitespace = false
 	local image_map = {}
 	local horizontal_alignment = output_location.HorizontalAlignment
 	local vertical_alignment = output_location.VerticalAlignment
@@ -946,15 +945,15 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 	local thread = coroutine.create(function()
 		local column = 1
 		local true_column = { Value = 1 }
-		local true_column_relative = 1
 		local row = 1
 
 		while column <= #self._ParsedText do
+			-- naive, only have GetRow fire when necessary
 			local curr_row = GetRow(true_column, current_font_size, output_location)
+			print(curr_row, "row")
 
 			if curr_row ~= row then
 				row = curr_row
-				true_column_relative = 1
 			end
 			
 			local segment = self._ParsedText[column]
@@ -994,12 +993,6 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 			if typeof(segment) ~= "table" then
 				if not (#segment > 1) then
 					should_wait = true
-
-					if segment == " " then
-						is_whitespace = true
-					else
-						is_whitespace = false
-					end
 				else
 					should_wait = false
 					total_tag_length.Value += #segment
@@ -1034,27 +1027,25 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 				local image_character_length = GetUIElementLengthInCharacters(current_font_size, image_ref)
 				for i = 0, image_character_length do
 					output_string.Value = output_string.Value .. " "
+					true_column.Value += 1
 				end
 
 				-- add alignment variants later
 				if row == 1 then
 					image_ref.PositionOffset = Vector2.New(
-						true_column_relative * current_font_size + current_font_size / 2, 
+						current_font_size + current_font_size / 2, 
 						row * current_font_size
 					)
 				else
 					image_ref.PositionOffset = Vector2.New(
-						true_column_relative * current_font_size + current_font_size / 2,
-						row * current_font_size + current_font_size
+						true_column.Value % row * current_font_size + current_font_size / 2,
+						row * current_font_size + current_font_size / 2
 					)
 				end
 
 				image_ref.Parent = output_location
+				print(image_ref, true_column.Value % row)
 				image_data.AddedToText = true
-				
-				-- +1 for accounting for the start at 0
-				true_column.Value += image_character_length + 1
-				true_column_relative += image_character_length + 1
 				
 				-- wait in here cause the string value won't return anything with the OnUpdate
 				wait(self.typewriterSpeed)
@@ -1076,8 +1067,9 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 			end
 
 			column += 1
-			true_column_relative += 1
 			true_column.Value += 1
+
+			print(column, true_column.Value)
 
 			coroutine.yield(should_wait)
 		end
