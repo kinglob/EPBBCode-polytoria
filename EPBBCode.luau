@@ -906,8 +906,8 @@ end
 local function GetRow(true_column: { number }, font_size: number, output_location: OutputLocation): number
 	if typeof(output_location) ~= "UILabel" then error("EPBBCode: Output location is not of type UILabel. Cannot get row number.", 2) end
 
-	local width_in_characters = output_location.SizeOffset.X / font_size
-	return math.floor((true_column.Value - 1) / width_in_characters) + 1
+	local width_in_characters = mth.ceil(output_location.SizeOffset.X / font_size)
+	return math.ceil(true_column.Value / width_in_characters)
 end
 
 -- add sizerelative support later
@@ -944,16 +944,17 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 
 	local thread = coroutine.create(function()
 		local column = 1
+		local true_column_relatve = 1
 		local true_column = { Value = 1 }
 		local row = 1
 
 		while column <= #self._ParsedText do
 			-- naive, only have GetRow fire when necessary
 			local curr_row = GetRow(true_column, current_font_size, output_location)
-			print(curr_row, "row")
 
 			if curr_row ~= row then
 				row = curr_row
+				true_column_relatve = 1
 			end
 			
 			local segment = self._ParsedText[column]
@@ -972,7 +973,7 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 				local metadatatype, metadataresult = ExecuteMetadata(MetadataBind, self, output_location)
 
 				if metadatatype == EPBBText.Enums.EPBBTypes.Function then
-					-- literally no reason to exist
+					-- this has no reason to exist (i think)
 				elseif metadatatype == EPBBText.Enums.EPBBTypes.Image then
 					image_map[#image_map + 1] = {Image = metadataresult, AddedToText = false}
 				elseif metadatatype == EPBBText.Enums.EPBBTypes.Image_Sequence then
@@ -1027,7 +1028,6 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 				local image_character_length = GetUIElementLengthInCharacters(current_font_size, image_ref)
 				for i = 0, image_character_length do
 					output_string.Value = output_string.Value .. " "
-					true_column.Value += 1
 				end
 
 				-- add alignment variants later
@@ -1038,14 +1038,16 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 					)
 				else
 					image_ref.PositionOffset = Vector2.New(
-						true_column.Value % row * current_font_size + current_font_size / 2,
+						true_column_relatve * current_font_size + current_font_size / 2,
 						row * current_font_size + current_font_size / 2
 					)
 				end
 
 				image_ref.Parent = output_location
-				print(image_ref, true_column.Value % row)
 				image_data.AddedToText = true
+				
+				true_column.Value += 1
+				true_column_relative += Value
 				
 				-- wait in here cause the string value won't return anything with the OnUpdate
 				wait(self.typewriterSpeed)
@@ -1067,9 +1069,8 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 			end
 
 			column += 1
+			true_column_relatve += 1
 			true_column.Value += 1
-
-			print(column, true_column.Value)
 
 			coroutine.yield(should_wait)
 		end
