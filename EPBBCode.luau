@@ -905,8 +905,8 @@ end
 -- replace this with a smarter structure that checks all previous font tags and gets the text length in pixels
 local function GetRow(true_column: { number }, font_size: number, output_location: OutputLocation): number
 	if typeof(output_location) ~= "UILabel" then error("EPBBCode: Output location is not of type UILabel. Cannot get row number.", 2) end
+	local width_in_characters = math.ceil(output_location.SizeOffset.X / font_size)
 
-	local width_in_characters = mth.ceil(output_location.SizeOffset.X / font_size)
 	return math.ceil(true_column.Value / width_in_characters)
 end
 
@@ -944,7 +944,7 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 
 	local thread = coroutine.create(function()
 		local column = 1
-		local true_column_relatve = 1
+		local true_column_relative = 1
 		local true_column = { Value = 1 }
 		local row = 1
 
@@ -954,7 +954,7 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 
 			if curr_row ~= row then
 				row = curr_row
-				true_column_relatve = 1
+				true_column_relative = 1
 			end
 			
 			local segment = self._ParsedText[column]
@@ -975,7 +975,13 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 				if metadatatype == EPBBText.Enums.EPBBTypes.Function then
 					-- this has no reason to exist (i think)
 				elseif metadatatype == EPBBText.Enums.EPBBTypes.Image then
-					image_map[#image_map + 1] = {Image = metadataresult, AddedToText = false}
+					print("image added at true_column=" .. true_column.Value .. " row=" .. row)
+					image_map[#image_map + 1] = {
+					    Image = metadataresult,
+					    AddedToText = false,
+					    Column = true_column.Value,
+					    Row = row,
+					}
 				elseif metadatatype == EPBBText.Enums.EPBBTypes.Image_Sequence then
 				elseif metadatatype == EPBBText.Enums.EPBBTypes.Animation then
 				elseif metadatatype == EPBBText.Enums.EPBBTypes.Gradient then
@@ -1013,44 +1019,33 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 
 			-- decide where to output (typesafe wowowow)
 			-- also counts images as characters
+			local i = 1
+			while i <= #image_map do
+			    local image_data = image_map[i]
 
-			for i = 1, #image_map do
-				if typeof(output_location) ~= "UILabel" then error("EPBBCode: Cannot add an image to output location as it is not a UILabel!", 2) end
-				local image_data = image_map[i]
-
-				if image_data.AddedToText then
-					continue
-				end
+			    if image_data.AddedToText then
+			        i += 1
+			        continue
+			    end
 
 				local image_ref = image_data.Image
 
-				-- add to text, along with whitespace for however long the image is in characters
-				local image_character_length = GetUIElementLengthInCharacters(current_font_size, image_ref)
-				for i = 0, image_character_length do
-					output_string.Value = output_string.Value .. " "
-				end
+				local image_length_characters = GetUIElementLengthInCharacters(current_font_size, image_ref)
+				local width_in_characters = math.ceil(output_location.SizeOffset.X / current_font_size)
+				local column_within_row = image_data.Column % width_in_characters
 
-				-- add alignment variants later
-				if row == 1 then
-					image_ref.PositionOffset = Vector2.New(
-						current_font_size + current_font_size / 2, 
-						row * current_font_size
-					)
-				else
-					image_ref.PositionOffset = Vector2.New(
-						true_column_relatve * current_font_size + current_font_size / 2,
-						row * current_font_size + current_font_size / 2
-					)
-				end
+				image_ref.PositionOffset = Vector2.New(
+				    column_within_row * current_font_size + current_font_size / 2,
+				    image_data.Row * current_font_size + current_font_size / 2
+				)
 
-				image_ref.Parent = output_location
-				image_data.AddedToText = true
-				
-				true_column.Value += 1
-				true_column_relative += Value
-				
-				-- wait in here cause the string value won't return anything with the OnUpdate
-				wait(self.typewriterSpeed)
+			    for j = 1, image_length_characters do
+			        output_string.Value = output_string.Value .. " "
+			    end
+
+    			image_ref.Parent = output_location
+			    image_data.AddedToText = true
+    			i += 1
 			end
 
 			if typeof(output_location) == "UILabel" then
@@ -1069,7 +1064,7 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 			end
 
 			column += 1
-			true_column_relatve += 1
+			true_column_relative += 1
 			true_column.Value += 1
 
 			coroutine.yield(should_wait)
