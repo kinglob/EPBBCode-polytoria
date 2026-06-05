@@ -1079,7 +1079,7 @@ function EPBBText:TypewriterOut(output_location: OutputLocation, onUpdate: ((str
 	while coroutine.status(thread) ~= "dead" do
 		if not self.isPaused then
 			if coroutine.status(thread) == "suspended" then
-				local success, err = pcall(coroutine.resume, thread)
+				local success, err = coroutine.resume(thread)
 				if not success then
 					error("EPBBCode: Unable to resume TypewriterOut thread. Err: " .. tostring(err), 2)
 				end
